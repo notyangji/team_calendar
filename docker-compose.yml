@@ -1,0 +1,25 @@
+version: "3.8"
+
+services:
+  mongo:
+    image: mongo:7
+    container_name: team_calendar_mongo
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+
+  server:
+    build: ./calendar-backend
+    container_name: team_calendar_server
+    ports:
+      - "5000:5000"
+    env_file:
+      - ./calendar-backend/.env
+    depends_on:
+      - mongo
+    restart: unless-stopped
+
+volumes:
+  mongo_data:
