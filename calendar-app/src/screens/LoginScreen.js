@@ -5,6 +5,7 @@ import {
 } from "react-native";
 import * as WebBrowser from "expo-web-browser";
 import * as AuthSession from "expo-auth-session";
+import { SafeAreaView } from "react-native-safe-area-context";
 import client, { BACKEND_URL } from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
@@ -17,7 +18,7 @@ const GOOGLE_CLIENT_ID = "302079810578-da87bmh36kr4e181fsmoqvmfk1nttndf.apps.goo
 const KAKAO_REST_API_KEY = "27f4d03c4859f152d77f7a31037991a6";
 
 // ngrok URL — OAuth 콜백용 (Google/카카오 콘솔에 등록한 주소와 동일해야 함)
-const OAUTH_BASE_URL = "https://earned-reward-towards-goat.trycloudflare.com";
+const OAUTH_BASE_URL = "https://drew-evict-duchess.ngrok-free.dev";
 
 export default function LoginScreen({ navigation }) {
   const { login, loginWithOAuth } = useAuth();
@@ -102,6 +103,7 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
+    <SafeAreaView style={styles.safe}>
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <View style={styles.inner}>
         <Text style={styles.title}>Team Calendar</Text>
@@ -152,11 +154,13 @@ export default function LoginScreen({ navigation }) {
         </TouchableOpacity>
       </View>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f6fa" },
+  safe: { flex: 1, backgroundColor: "#f5f6fa" },
+  container: { flex: 1 },
   inner: { flex: 1, justifyContent: "center", paddingHorizontal: 28 },
   title: { fontSize: 32, fontWeight: "bold", color: "#2c3e50", textAlign: "center", marginBottom: 6 },
   subtitle: { fontSize: 14, color: "#7f8c8d", textAlign: "center", marginBottom: 36 },

@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  FlatList, ActivityIndicator, SafeAreaView,
+  FlatList, ActivityIndicator,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { Ionicons } from "@expo/vector-icons";
 import client from "../api/client";
@@ -27,10 +28,11 @@ export default function HomeScreen({ navigation }) {
     setLoading(true);
     try {
       const { data } = await client.get("/events");
-      setEvents(data);
+      const list = Array.isArray(data) ? data : [];
+      setEvents(list);
 
       const marks = {};
-      data.forEach((event) => {
+      list.forEach((event) => {
         const date = event.startDate.split("T")[0];
         marks[date] = {
           marked: true,

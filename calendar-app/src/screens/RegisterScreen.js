@@ -3,6 +3,7 @@ import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator, KeyboardAvoidingView, Platform, ScrollView,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { useAuth } from "../context/AuthContext";
 
 export default function RegisterScreen({ navigation }) {
@@ -33,6 +34,7 @@ export default function RegisterScreen({ navigation }) {
   };
 
   return (
+    <SafeAreaView style={styles.safe}>
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === "ios" ? "padding" : undefined}>
       <ScrollView contentContainerStyle={styles.inner} keyboardShouldPersistTaps="handled">
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
@@ -84,11 +86,13 @@ export default function RegisterScreen({ navigation }) {
         </TouchableOpacity>
       </ScrollView>
     </KeyboardAvoidingView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#f5f6fa" },
+  safe: { flex: 1, backgroundColor: "#f5f6fa" },
+  container: { flex: 1 },
   inner: { flexGrow: 1, justifyContent: "center", paddingHorizontal: 28, paddingVertical: 40 },
   backBtn: { marginBottom: 24 },
   backText: { color: "#4A90E2", fontSize: 15 },

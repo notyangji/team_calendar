@@ -2,8 +2,9 @@ import React, { useState } from "react";
 import {
   View, Text, TextInput, TouchableOpacity,
   StyleSheet, Alert, ActivityIndicator,
-  KeyboardAvoidingView, Platform, SafeAreaView,
+  KeyboardAvoidingView, Platform,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import client from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
