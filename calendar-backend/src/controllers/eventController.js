@@ -2,28 +2,57 @@ const Event = require("../models/Event");
 const Team = require("../models/Team");
 
 const createEvent = async (req, res) => {
-  const { title, description, startDate, endDate, allDay, teamId } = req.body;
-  if (!title || !startDate || !endDate)
-    return res.status(400).json({ message: "제목, 시작일, 종료일은 필수입니다." });
+  try {
+    const { title, description, startDate, endDate, allDay, teamId, appliedTeams } = req.body;
+    if (!title || !startDate || !endDate)
+      return res.status(400).json({ message: "제목, 시작일, 종료일은 필수입니다." });
 
-  if (teamId) {
-    const team = await Team.findById(teamId);
-    if (!team) return res.status(404).json({ message: "팀을 찾을 수 없습니다." });
-    if (!team.members.includes(req.user._id))
-      return res.status(403).json({ message: "해당 팀의 멤버가 아닙니다." });
+    if (teamId) {
+      const team = await Team.findById(teamId);
+      if (!team) return res.status(404).json({ message: "팀을 찾을 수 없습니다." });
+      if (!team.members.includes(req.user._id))
+        return res.status(403).json({ message: "해당 팀의 멤버가 아닙니다." });
+    }
+
+    // 원본 팀에 역공개 불가
+    let validAppliedTeams = [];
+    if (appliedTeams && appliedTeams.length > 0) {
+      validAppliedTeams = appliedTeams.filter(
+        (id) => id.toString() !== teamId?.toString()
+      );
+    }
+
+    const event = await Event.create({
+      title, description, startDate, endDate, allDay,
+      team: teamId || null,
+      createdBy: req.user._id,
+      sourceTeam: teamId || null,
+      isPublic: validAppliedTeams.length > 0,
+      appliedTeams: validAppliedTeams,
+    });
+
+    if (teamId) {
+      const team = await Team.findById(teamId);
+      const otherMembers = team.members.filter(
+        (m) => m.toString() !== req.user._id.toString()
+      );
+      await Promise.all(
+        otherMembers.map((memberId) =>
+          Event.create({
+            title, description, startDate, endDate, allDay,
+            team: null,
+            createdBy: memberId,
+            sourceTeam: teamId,
+            isPublic: false,
+          })
+        )
+      );
+    }
+
+    res.status(201).json(event);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
-
-  const event = await Event.create({
-    title,
-    description,
-    startDate,
-    endDate,
-    allDay,
-    team: teamId || null,
-    createdBy: req.user._id,
-  });
-
-  res.status(201).json(event);
 };
 
 const getEvents = async (req, res) => {
