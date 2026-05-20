@@ -57,10 +57,13 @@ const createEvent = async (req, res) => {
 
 const getEvents = async (req, res) => {
   try {
-    const { teamId } = req.query;
+    const { teamId, startDate, endDate } = req.query;
     const filter = teamId
       ? { team: teamId }
       : { createdBy: req.user._id, team: null };
+    if (startDate && endDate) {
+      filter.startDate = { $gte: new Date(startDate), $lte: new Date(endDate) };
+    }
     const events = await Event.find(filter)
       .populate("createdBy", "name email")
       .populate("assignedTo", "name email");
