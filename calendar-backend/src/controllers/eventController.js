@@ -106,4 +106,33 @@ const deleteEvent = async (req, res) => {
   }
 };
 
+const publishEvents = async (req, res) => {
+  try {
+    const { eventIds, teamIds } = req.body;
+    if (!eventIds || !teamIds)
+      return res.status(400).json({ message: "eventIds와 teamIds는 필수입니다." });
+
+    await Promise.all(
+      eventIds.map(async (eventId) => {
+        const event = await Event.findById(eventId);
+        if (!event || event.createdBy.toString() !== req.user._id.toString()) return;
+
+        // 원본 팀에 역공개 불가
+        const validTeams = teamIds.filter(
+          (id) => id.toString() !== event.sourceTeam?.toString()
+        );
+
+        await Event.findByIdAndUpdate(eventId, {
+          isPublic: true,
+          $addToSet: { appliedTeams: { $each: validTeams } },
+        });
+      })
+    );
+
+    res.json({ message: "공개 설정이 완료되었습니다." });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = { createEvent, getEvents, getEvent, updateEvent, deleteEvent };
