@@ -56,36 +56,54 @@ const createEvent = async (req, res) => {
 };
 
 const getEvents = async (req, res) => {
-  const { teamId } = req.query;
-  const filter = teamId ? { team: teamId } : { createdBy: req.user._id, team: null };
-  const events = await Event.find(filter).populate("createdBy", "name email");
-  res.json(events);
+  try {
+    const { teamId } = req.query;
+    const filter = teamId
+      ? { team: teamId }
+      : { createdBy: req.user._id, team: null };
+    const events = await Event.find(filter)
+      .populate("createdBy", "name email")
+      .populate("assignedTo", "name email");
+    res.json(events);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 const getEvent = async (req, res) => {
-  const event = await Event.findById(req.params.id).populate("createdBy", "name email");
-  if (!event) return res.status(404).json({ message: "일정을 찾을 수 없습니다." });
-  res.json(event);
+  try {
+    const event = await Event.findById(req.params.id).populate("createdBy", "name email");
+    if (!event) return res.status(404).json({ message: "일정을 찾을 수 없습니다." });
+    res.json(event);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 const updateEvent = async (req, res) => {
-  const event = await Event.findById(req.params.id);
-  if (!event) return res.status(404).json({ message: "일정을 찾을 수 없습니다." });
-  if (event.createdBy.toString() !== req.user._id.toString())
-    return res.status(403).json({ message: "일정 작성자만 수정할 수 있습니다." });
-
-  const updated = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
-  res.json(updated);
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: "일정을 찾을 수 없습니다." });
+    if (event.createdBy.toString() !== req.user._id.toString())
+      return res.status(403).json({ message: "일정 작성자만 수정할 수 있습니다." });
+    const updated = await Event.findByIdAndUpdate(req.params.id, req.body, { new: true, runValidators: true });
+    res.json(updated);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 const deleteEvent = async (req, res) => {
-  const event = await Event.findById(req.params.id);
-  if (!event) return res.status(404).json({ message: "일정을 찾을 수 없습니다." });
-  if (event.createdBy.toString() !== req.user._id.toString())
-    return res.status(403).json({ message: "일정 작성자만 삭제할 수 있습니다." });
-
-  await event.deleteOne();
-  res.json({ message: "일정이 삭제되었습니다." });
+  try {
+    const event = await Event.findById(req.params.id);
+    if (!event) return res.status(404).json({ message: "일정을 찾을 수 없습니다." });
+    if (event.createdBy.toString() !== req.user._id.toString())
+      return res.status(403).json({ message: "일정 작성자만 삭제할 수 있습니다." });
+    await event.deleteOne();
+    res.json({ message: "일정이 삭제되었습니다." });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 module.exports = { createEvent, getEvents, getEvent, updateEvent, deleteEvent };
