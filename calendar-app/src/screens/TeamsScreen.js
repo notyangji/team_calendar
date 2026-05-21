@@ -31,7 +31,8 @@ export default function TeamsScreen() {
       const { data } = await client.get("/teams");
       setTeams(data);
     } catch (e) {
-      Alert.alert("오류", e.response?.data?.message || "팀 목록을 불러오지 못했습니다.");
+      console.error("팀 목록 불러오기 실패:", e);
+      Alert.alert("오류", e?.response?.data?.message || e?.message || "팀 목록을 불러오지 못했습니다.");
     } finally {
       setLoading(false);
     }
@@ -212,8 +213,8 @@ export default function TeamsScreen() {
 
       {/* 팀 생성 모달 */}
       <Modal visible={createModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setCreateModal(false)}>
+          <View style={styles.modalBox} onStartShouldSetResponder={() => true}>
             <Text style={styles.modalTitle}>새 팀 만들기</Text>
             <TextInput
               style={styles.input}
@@ -239,13 +240,13 @@ export default function TeamsScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
       </Modal>
 
       {/* 코드로 참가 모달 */}
       <Modal visible={joinModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => { setJoinModal(false); setInviteCode(""); }}>
+          <View style={styles.modalBox} onStartShouldSetResponder={() => true}>
             <Text style={styles.modalTitle}>초대 코드로 참가</Text>
             <TextInput
               style={styles.input}
@@ -264,13 +265,13 @@ export default function TeamsScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
       </Modal>
 
       {/* 팀 상세 모달 */}
       <Modal visible={detailModal} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalBox, { maxHeight: "80%" }]}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDetailModal(false)}>
+          <View style={[styles.modalBox, { maxHeight: "80%" }]} onStartShouldSetResponder={() => true}>
             <Text style={styles.modalTitle}>{selectedTeam?.name}</Text>
             {selectedTeam?.description ? (
               <Text style={styles.teamDescModal}>{selectedTeam.description}</Text>
@@ -330,13 +331,13 @@ export default function TeamsScreen() {
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
       </Modal>
 
       {/* 초대 코드 모달 */}
       <Modal visible={inviteModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setInviteModal(false)}>
+          <View style={styles.modalBox} onStartShouldSetResponder={() => true}>
             <Text style={styles.modalTitle}>초대 코드</Text>
             <View style={styles.codeBox}>
               <Text style={styles.codeText}>{inviteCode}</Text>
@@ -352,7 +353,7 @@ export default function TeamsScreen() {
               <Text style={styles.confirmBtnText}>닫기</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </TouchableOpacity>
       </Modal>
     </SafeAreaView>
   );

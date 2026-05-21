@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity,
-  FlatList, ActivityIndicator,
+  FlatList, ActivityIndicator, Alert,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Calendar, LocaleConfig } from "react-native-calendars";
@@ -46,7 +46,7 @@ export default function HomeScreen({ navigation }) {
       };
       setMarkedDates(marks);
     } catch (e) {
-      console.log("일정 불러오기 실패:", e.message);
+      console.error("일정 불러오기 실패:", e.message, e);
     } finally {
       setLoading(false);
     }
@@ -72,7 +72,36 @@ export default function HomeScreen({ navigation }) {
     });
   };
 
-  const dayEvents = events.filter((e) => e.startDate.split("T")[0] === selectedDate);
+  const dayEvents = events.filter((e) => {
+    try {
+      return e?.startDate?.split?.("T")?.[0] === selectedDate;
+    } catch {
+      return false;
+    }
+  });
+
+  const handleEventPress = (event) => {
+    Alert.alert(event.title, null, [
+      { text: "수정", onPress: () => navigation.navigate("AddEvent", { selectedDate, event }) },
+      {
+        text: "삭제", style: "destructive", onPress: () =>
+          Alert.alert("삭제 확인", "이 일정을 삭제할까요?", [
+            { text: "취소", style: "cancel" },
+            {
+              text: "삭제", style: "destructive", onPress: async () => {
+                try {
+                  await client.delete(`/events/${event._id}`);
+                  fetchEvents();
+                } catch {
+                  Alert.alert("오류", "일정을 삭제하지 못했습니다.");
+                }
+              },
+            },
+          ]),
+      },
+      { text: "취소", style: "cancel" },
+    ]);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -115,7 +144,7 @@ export default function HomeScreen({ navigation }) {
             data={dayEvents}
             keyExtractor={(item) => item._id}
             renderItem={({ item }) => (
-              <View style={styles.eventCard}>
+              <TouchableOpacity style={styles.eventCard} onPress={() => handleEventPress(item)}>
                 <View style={styles.eventDot} />
                 <View style={{ flex: 1 }}>
                   <Text style={styles.eventTitle}>{item.title}</Text>
@@ -126,7 +155,8 @@ export default function HomeScreen({ navigation }) {
                     {item.allDay ? "하루 종일" : new Date(item.startDate).toLocaleTimeString("ko-KR", { hour: "2-digit", minute: "2-digit" })}
                   </Text>
                 </View>
-              </View>
+                <Ionicons name="chevron-forward" size={16} color="#ccc" />
+              </TouchableOpacity>
             )}
           />
         )}

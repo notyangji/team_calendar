@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import client, { setAuthToken } from "../api/client";
+import client, { setAuthToken, setSessionExpiredHandler } from "../api/client";
 
 const AuthContext = createContext(null);
 
@@ -8,21 +8,54 @@ export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
+  const logout = async () => {
+    try {
+      await AsyncStorage.removeItem("token").catch(() => {});
+      await AsyncStorage.removeItem("user").catch(() => {});
+    } finally {
+      setAuthToken(null);
+      setToken(null);
+      setUser(null);
+    }
+  };
 
   useEffect(() => {
+    // 401 발생 시 자동 로그아웃
+    setSessionExpiredHandler(logout);
+
     const restore = async () => {
-      const stored = await AsyncStorage.getItem("token");
-      if (stored) {
-        setToken(stored);
-        setAuthToken(stored);
+      try {
+        const storedToken = await AsyncStorage.getItem("token");
+        if (!storedToken) return;
+        setToken(storedToken);
+        setAuthToken(storedToken);
+        const storedUser = await AsyncStorage.getItem("user");
+        if (storedUser) {
+          setUser(JSON.parse(storedUser));
+        } else {
+          try {
+            const { data } = await client.get("/auth/me");
+            setUser(data);
+            await AsyncStorage.setItem("user", JSON.stringify({ ...data, token: storedToken }));
+          } catch {
+            // 토큰 만료 등 — 인터셉터가 처리
+          }
+        }
+      } catch {
+        // JSON.parse 실패 등 복원 오류 시 세션 초기화
+        await AsyncStorage.removeItem("token").catch(() => {});
+        await AsyncStorage.removeItem("user").catch(() => {});
+        setAuthToken(null);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
     restore();
   }, []);
 
   const saveSession = async (data) => {
     await AsyncStorage.setItem("token", data.token);
+    await AsyncStorage.setItem("user", JSON.stringify(data));
     setAuthToken(data.token);
     setToken(data.token);
     setUser(data);
@@ -40,13 +73,6 @@ export function AuthProvider({ children }) {
 
   const loginWithOAuth = async (data) => {
     await saveSession(data);
-  };
-
-  const logout = async () => {
-    await AsyncStorage.removeItem("token");
-    setAuthToken(null);
-    setToken(null);
-    setUser(null);
   };
 
   return (

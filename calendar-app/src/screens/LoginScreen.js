@@ -22,7 +22,6 @@ const OAUTH_BASE_URL = "https://drew-evict-duchess.ngrok-free.dev";
 
 export default function LoginScreen({ navigation }) {
   const { login, loginWithOAuth } = useAuth();
-  const goToMain = () => navigation.replace("Main");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
@@ -32,7 +31,7 @@ export default function LoginScreen({ navigation }) {
     setLoading(true);
     try {
       await login(email, password);
-      goToMain();
+      navigation.replace("Main");
     } catch (e) {
       Alert.alert("로그인 실패", e.response?.data?.message || "오류가 발생했습니다.");
     } finally {
@@ -67,7 +66,7 @@ export default function LoginScreen({ navigation }) {
         headers: { Authorization: `Bearer ${token}` },
       });
       await loginWithOAuth({ ...data, token });
-      goToMain();
+      navigation.replace("Main");
     } catch (e) {
       Alert.alert(`${provider} 로그인 실패`, e.response?.data?.message || e.message);
     } finally {

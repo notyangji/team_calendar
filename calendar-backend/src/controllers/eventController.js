@@ -138,4 +138,4 @@ const publishEvents = async (req, res) => {
   }
 };
 
-module.exports = { createEvent, getEvents, getEvent, updateEvent, deleteEvent };
+module.exports = { createEvent, getEvents, getEvent, updateEvent, deleteEvent, publishEvents };
