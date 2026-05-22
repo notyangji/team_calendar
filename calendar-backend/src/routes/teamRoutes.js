@@ -1,9 +1,12 @@
 const express = require("express");
 const router = express.Router();
-const {
+const { 
   createTeam,
   getMyTeams,
   getTeam,
+  getMembers,
+  getMyRole,
+  updateMemberRole,
   getInviteLink,
   joinTeam,
   regenerateInvite,
@@ -15,17 +18,25 @@ const { protect } = require("../middleware/authMiddleware");
 
 router.use(protect);
 
-router.get("/", getMyTeams);
+// 团队管理
 router.post("/", createTeam);
-
-router.post("/join", joinTeam);               // 초대 코드 입력으로 참가
-router.get("/join/:inviteCode", joinTeam);    // 초대 URL 클릭으로 참가
-
+router.get("/", getMyTeams);
 router.get("/:id", getTeam);
 router.delete("/:id", deleteTeam);
-router.post("/:id/leave", leaveTeam);                        // 팀 나가기
-router.get("/:id/invite", getInviteLink);                    // 초대 링크 조회
-router.post("/:id/invite/regenerate", regenerateInvite);     // 초대 코드 재생성
-router.delete("/:id/members/:userId", removeMember);         // 멤버 강퇴
+
+// 成员管理
+router.get("/:id/members", getMembers);
+router.get("/:id/my-role", getMyRole);
+router.put("/:id/members/:userId/role", updateMemberRole);
+
+// 邀请
+router.get("/:id/invite", getInviteLink);
+router.post("/join", joinTeam);
+router.post("/join/:inviteCode", joinTeam);
+router.put("/:id/regenerate-invite", regenerateInvite);
+
+// 成员操作
+router.post("/:id/leave", leaveTeam);
+router.delete("/:id/members/:userId", removeMember);
 
 module.exports = router;
