@@ -8,17 +8,28 @@ import { Ionicons } from "@expo/vector-icons";
 import client from "../api/client";
 import { useAuth } from "../context/AuthContext";
 
+// 角色配置
+const ROLES = [
+  { value: "admin", label: "관리자", color: "#9B59B6", description: "일정 관리, 멤버 초대 가능" },
+  { value: "member", label: "멤버", color: "#4A90E2", description: "일정 생성 및 조회 가능" },
+  { value: "guest", label: "게스트", color: "#7f8c8d", description: "일정 조회만 가능" },
+];
+
 export default function TeamsScreen() {
   const { user } = useAuth();
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedTeam, setSelectedTeam] = useState(null);
+  const [teamMembers, setTeamMembers] = useState(null);
+  const [myRole, setMyRole] = useState(null);
 
   // 모달 상태
   const [createModal, setCreateModal] = useState(false);
   const [joinModal, setJoinModal] = useState(false);
   const [detailModal, setDetailModal] = useState(false);
   const [inviteModal, setInviteModal] = useState(false);
+  const [roleModal, setRoleModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
 
   // 입력값
   const [teamName, setTeamName] = useState("");
@@ -73,8 +84,14 @@ export default function TeamsScreen() {
   // 팀 상세 보기
   const handleOpenDetail = async (team) => {
     try {
-      const { data } = await client.get(`/teams/${team._id}`);
-      setSelectedTeam(data);
+      const [teamData, membersData, roleData] = await Promise.all([
+        client.get(`/teams/${team._id}`),
+        client.get(`/teams/${team._id}/members`),
+        client.get(`/teams/${team._id}/my-role`),
+      ]);
+      setSelectedTeam(teamData.data);
+      setTeamMembers(membersData.data);
+      setMyRole(roleData.data.role);
       setDetailModal(true);
     } catch (e) {
       Alert.alert("오류", "팀 정보를 불러오지 못했습니다.");
@@ -95,7 +112,7 @@ export default function TeamsScreen() {
   // 초대 코드 재생성
   const handleRegenerateInvite = async (teamId) => {
     try {
-      const { data } = await client.post(`/teams/${teamId}/invite/regenerate`);
+      const { data } = await client.post(`/teams/${teamId}/regenerate-invite`);
       setInviteCode(data.inviteCode);
       Alert.alert("완료", "초대 코드가 재생성되었습니다.");
     } catch (e) {
@@ -140,21 +157,54 @@ export default function TeamsScreen() {
   };
 
   // 멤버 강퇴 (팀장만)
-  const handleRemoveMember = (teamId, memberId, memberName) => {
-    Alert.alert("멤버 강퇴", `${memberName}님을 강퇴하시겠습니까?`, [
+  const handleRemoveMember = (member) => {
+    Alert.alert("멤버 강퇴", `${member.name}님을 강퇴하시겠습니까?`, [
       { text: "취소", style: "cancel" },
       {
         text: "강퇴", style: "destructive", onPress: async () => {
           try {
-            await client.delete(`/teams/${teamId}/members/${memberId}`);
-            const { data } = await client.get(`/teams/${teamId}`);
-            setSelectedTeam(data);
+            await client.delete(`/teams/${selectedTeam._id}/members/${member._id}`);
+            // 刷新成员列表
+            const { data } = await client.get(`/teams/${selectedTeam._id}/members`);
+            setTeamMembers(data);
           } catch (e) {
             Alert.alert("오류", e.response?.data?.message || "강퇴에 실패했습니다.");
           }
         }
       }
     ]);
+  };
+
+  // 修改成员角色
+  const handleChangeRole = (member) => {
+    setSelectedMember(member);
+    setRoleModal(true);
+  };
+
+  const handleUpdateRole = async (newRole) => {
+    if (!selectedMember) return;
+    try {
+      await client.put(`/teams/${selectedTeam._id}/members/${selectedMember._id}/role`, { role: newRole });
+      // 刷新成员列表
+      const { data } = await client.get(`/teams/${selectedTeam._id}/members`);
+      setTeamMembers(data);
+      setRoleModal(false);
+      setSelectedMember(null);
+      Alert.alert("완료", "역할이 변경되었습니다.");
+    } catch (e) {
+      Alert.alert("오류", e.response?.data?.message || "역할 변경에 실패했습니다.");
+    }
+  };
+
+  const getRoleBadge = (role) => {
+    const roleConfig = ROLES.find(r => r.value === role) || ROLES[1];
+    return (
+      <View style={[styles.roleBadge, { backgroundColor: `${roleConfig.color}20` }]}>
+        <Text style={[styles.roleBadgeText, { color: roleConfig.color }]}>
+          {role === "owner" ? "팀장" : roleConfig.label}
+        </Text>
+      </View>
+    );
   };
 
   const renderTeamItem = ({ item }) => (
@@ -170,6 +220,43 @@ export default function TeamsScreen() {
       <Ionicons name="chevron-forward" size={18} color="#ccc" />
     </TouchableOpacity>
   );
+
+  const renderMemberSection = (title, members, showActions = false) => {
+    if (!members || members.length === 0) return null;
+    return (
+      <View style={styles.memberSection}>
+        <Text style={styles.memberSectionTitle}>{title} ({members.length}명)</Text>
+        {members.map((m) => (
+          <View key={m._id} style={styles.memberRow}>
+            <View style={styles.memberAvatar}>
+              <Text style={styles.memberAvatarText}>{m.name[0]?.toUpperCase()}</Text>
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.memberName}>{m.name}</Text>
+              <Text style={styles.memberEmail}>{m.email}</Text>
+            </View>
+            {getRoleBadge(m.role)}
+            {showActions && m.role !== "owner" && myRole === "owner" && (
+              <View style={styles.memberActions}>
+                <TouchableOpacity 
+                  style={styles.actionBtn}
+                  onPress={() => handleChangeRole(m)}
+                >
+                  <Ionicons name="person-outline" size={16} color="#4A90E2" />
+                </TouchableOpacity>
+                <TouchableOpacity 
+                  style={styles.actionBtn}
+                  onPress={() => handleRemoveMember(m)}
+                >
+                  <Ionicons name="close-outline" size={16} color="#e74c3c" />
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        ))}
+      </View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -271,37 +358,31 @@ export default function TeamsScreen() {
       {/* 팀 상세 모달 */}
       <Modal visible={detailModal} transparent animationType="slide">
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDetailModal(false)}>
-          <View style={[styles.modalBox, { maxHeight: "80%" }]} onStartShouldSetResponder={() => true}>
-            <Text style={styles.modalTitle}>{selectedTeam?.name}</Text>
+          <View style={[styles.modalBox, { maxHeight: "85%" }]} onStartShouldSetResponder={() => true}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>{selectedTeam?.name}</Text>
+              {myRole && (
+                <View style={[styles.myRoleBadge, { backgroundColor: myRole === "owner" ? "#e8f0fb" : "#f5f6fa" }]}>
+                  <Text style={[styles.myRoleText, { color: myRole === "owner" ? "#4A90E2" : "#7f8c8d" }]}>
+                    내 역할: {myRole === "owner" ? "팀장" : myRole === "admin" ? "관리자" : myRole === "member" ? "멤버" : "게스트"}
+                  </Text>
+                </View>
+              )}
+            </View>
             {selectedTeam?.description ? (
               <Text style={styles.teamDescModal}>{selectedTeam.description}</Text>
             ) : null}
 
-            <Text style={styles.memberLabel}>멤버 ({selectedTeam?.members?.length}명)</Text>
-            <ScrollView style={{ maxHeight: 160 }}>
-              {selectedTeam?.members?.map((m) => (
-                <View key={m._id} style={styles.memberRow}>
-                  <View style={styles.memberAvatar}>
-                    <Text style={styles.memberAvatarText}>{m.name[0]?.toUpperCase()}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.memberName}>{m.name}</Text>
-                    <Text style={styles.memberEmail}>{m.email}</Text>
-                  </View>
-                  {selectedTeam?.owner?._id === m._id ? (
-                    <View style={styles.ownerBadge}>
-                      <Text style={styles.ownerBadgeText}>팀장</Text>
-                    </View>
-                  ) : selectedTeam?.owner?._id === user?._id ? (
-                    <TouchableOpacity
-                      style={styles.kickBtn}
-                      onPress={() => handleRemoveMember(selectedTeam._id, m._id, m.name)}
-                    >
-                      <Text style={styles.kickBtnText}>강퇴</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              ))}
+            {/* 역할별 멤버 목록 */}
+            <ScrollView style={{ maxHeight: 300 }}>
+              {teamMembers && (
+                <>
+                  {renderMemberSection("팀장", teamMembers.owner)}
+                  {renderMemberSection("관리자", teamMembers.admins)}
+                  {renderMemberSection("멤버", teamMembers.members, true)}
+                  {renderMemberSection("게스트", teamMembers.guests, true)}
+                </>
+              )}
             </ScrollView>
 
             {/* 초대 버튼 */}
@@ -317,19 +398,57 @@ export default function TeamsScreen() {
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setDetailModal(false)}>
                 <Text style={styles.cancelBtnText}>닫기</Text>
               </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.leaveBtn}
-                onPress={() => handleLeaveTeam(selectedTeam?._id)}
-              >
-                <Text style={styles.leaveBtnText}>나가기</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.deleteBtn}
-                onPress={() => handleDeleteTeam(selectedTeam?._id)}
-              >
-                <Text style={styles.deleteBtnText}>삭제</Text>
-              </TouchableOpacity>
+              {myRole !== "owner" && (
+                <TouchableOpacity
+                  style={styles.leaveBtn}
+                  onPress={() => handleLeaveTeam(selectedTeam?._id)}
+                >
+                  <Text style={styles.leaveBtnText}>나가기</Text>
+                </TouchableOpacity>
+              )}
+              {myRole === "owner" && (
+                <TouchableOpacity
+                  style={styles.deleteBtn}
+                  onPress={() => handleDeleteTeam(selectedTeam?._id)}
+                >
+                  <Text style={styles.deleteBtnText}>삭제</Text>
+                </TouchableOpacity>
+              )}
             </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* 역할 변경 모달 */}
+      <Modal visible={roleModal} transparent animationType="slide">
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setRoleModal(false)}>
+          <View style={styles.modalBox} onStartShouldSetResponder={() => true}>
+            <Text style={styles.modalTitle}>역할 변경</Text>
+            <Text style={styles.roleMemberName}>{selectedMember?.name}님의 역할을 변경합니다</Text>
+            
+            {ROLES.map((role) => (
+              <TouchableOpacity
+                key={role.value}
+                style={[
+                  styles.roleOption,
+                  selectedMember?.role === role.value && styles.roleOptionActive,
+                ]}
+                onPress={() => handleUpdateRole(role.value)}
+              >
+                <View style={[styles.roleDot, { backgroundColor: role.color }]} />
+                <View style={styles.roleInfo}>
+                  <Text style={styles.roleLabel}>{role.label}</Text>
+                  <Text style={styles.roleDesc}>{role.description}</Text>
+                </View>
+                {selectedMember?.role === role.value && (
+                  <Ionicons name="checkmark" size={22} color="#4A90E2" />
+                )}
+              </TouchableOpacity>
+            ))}
+
+            <TouchableOpacity style={styles.cancelBtn} onPress={() => setRoleModal(false)}>
+              <Text style={styles.cancelBtnText}>취소</Text>
+            </TouchableOpacity>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -405,7 +524,12 @@ const styles = StyleSheet.create({
   modalBox: {
     backgroundColor: "#fff", borderRadius: 16, padding: 20, width: "100%",
   },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   modalTitle: { fontSize: 18, fontWeight: "bold", color: "#2c3e50", marginBottom: 16 },
+  myRoleBadge: {
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
+  },
+  myRoleText: { fontSize: 12, fontWeight: "600" },
   input: {
     backgroundColor: "#f5f6fa", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
     fontSize: 15, color: "#2c3e50", marginBottom: 12, borderWidth: 1, borderColor: "#e0e0e0",
@@ -431,7 +555,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#e74c3c",
   },
   deleteBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  memberLabel: { fontSize: 13, color: "#7f8c8d", marginBottom: 8, fontWeight: "600" },
+  // Member styles
+  memberSection: { marginBottom: 16 },
+  memberSectionTitle: { 
+    fontSize: 12, color: "#7f8c8d", marginBottom: 8, fontWeight: "600",
+    textTransform: "uppercase", letterSpacing: 0.5,
+  },
   memberRow: {
     flexDirection: "row", alignItems: "center", paddingVertical: 8,
     borderBottomWidth: 1, borderBottomColor: "#f0f0f0",
@@ -443,11 +572,28 @@ const styles = StyleSheet.create({
   memberAvatarText: { color: "#4A90E2", fontWeight: "bold", fontSize: 14 },
   memberName: { fontSize: 14, fontWeight: "600", color: "#2c3e50" },
   memberEmail: { fontSize: 12, color: "#aaa" },
-  ownerBadge: {
-    marginLeft: "auto", backgroundColor: "#e8f0fb", borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 3,
+  roleBadge: {
+    marginLeft: 8, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
   },
-  ownerBadgeText: { color: "#4A90E2", fontSize: 11, fontWeight: "600" },
+  roleBadgeText: { fontSize: 11, fontWeight: "600" },
+  memberActions: { flexDirection: "row", gap: 4, marginLeft: 8 },
+  actionBtn: {
+    width: 28, height: 28, borderRadius: 14, backgroundColor: "#f5f6fa",
+    justifyContent: "center", alignItems: "center",
+  },
+  // Role change modal
+  roleMemberName: { fontSize: 14, color: "#7f8c8d", marginBottom: 16 },
+  roleOption: {
+    flexDirection: "row", alignItems: "center", padding: 12, marginBottom: 8,
+    backgroundColor: "#f5f6fa", borderRadius: 10, gap: 12,
+    borderWidth: 1, borderColor: "#e0e0e0",
+  },
+  roleOptionActive: { borderColor: "#4A90E2", backgroundColor: "#f0f7ff" },
+  roleDot: { width: 10, height: 10, borderRadius: 5 },
+  roleInfo: { flex: 1 },
+  roleLabel: { fontSize: 14, fontWeight: "600", color: "#2c3e50" },
+  roleDesc: { fontSize: 12, color: "#7f8c8d", marginTop: 2 },
+  // Etc
   inviteBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     paddingVertical: 10, marginTop: 12, gap: 6,
@@ -465,9 +611,4 @@ const styles = StyleSheet.create({
     gap: 4, marginBottom: 12,
   },
   regenBtnText: { color: "#7f8c8d", fontSize: 13 },
-  kickBtn: {
-    backgroundColor: "#e74c3c", borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 4,
-  },
-  kickBtnText: { color: "#fff", fontSize: 11, fontWeight: "600" },
 });
