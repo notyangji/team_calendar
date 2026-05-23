@@ -225,13 +225,11 @@ const updateEvent = async (req, res) => {
     const event = await Event.findById(req.params.id);
     if (!event) return res.status(404).json({ message: "일정을 찾을 수 없습니다." });
 
-    // 检查权限
     const isCreator = event.createdBy.toString() === req.user._id.toString();
-    
+
     if (event.team) {
       const team = await Team.findById(event.team);
       const myRole = team?.getUserRole(req.user._id);
-      
       if (!isCreator && (!myRole || (myRole !== "owner" && myRole !== "admin"))) {
         return res.status(403).json({ message: "수정 권한이 없습니다." });
       }
@@ -239,22 +237,31 @@ const updateEvent = async (req, res) => {
       return res.status(403).json({ message: "일정 작성자만 수정할 수 있습니다." });
     }
 
-    const updateData = { ...req.body };
-    delete updateData.attendees; // 不允许直接修改参与人
+    // teamId는 스키마 필드가 아니므로 제거, attendees는 별도 처리
+    const { attendees: newAttendees, teamId, ...updateFields } = req.body;
 
-    const updated = await Event.findByIdAndUpdate(req.params.id, updateData, { 
-      new: true, 
-      runValidators: true 
-    })
+    // 참여자 업데이트: 기존 응답 상태 유지, 신규는 pending
+    if (Array.isArray(newAttendees)) {
+      updateFields.attendees = newAttendees.map(a => {
+        const uid = String(a.userId);
+        const existing = event.attendees.find(e => e.userId.toString() === uid);
+        return existing
+          ? { userId: uid, status: existing.status, respondedAt: existing.respondedAt }
+          : { userId: uid, status: "pending" };
+      });
+    }
+
+    const updated = await Event.findByIdAndUpdate(
+      req.params.id,
+      { $set: updateFields },
+      { new: true, runValidators: true }
+    )
       .populate("createdBy", "name email")
       .populate("attendees.userId", "name email");
 
-    // 发送更新通知
     if (event.team) {
       const team = await Team.findById(event.team);
-      const notifyUsers = team.members.filter(
-        m => m.toString() !== req.user._id.toString()
-      );
+      const notifyUsers = team.members.filter(m => m.toString() !== req.user._id.toString());
       await createNotification(updated, "updated", notifyUsers);
     }
 

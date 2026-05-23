@@ -27,6 +27,8 @@ services:
       - "5000:5000"
     env_file:
       - ./calendar-backend/.env
+    volumes:
+      - ./calendar-backend/src:/app/src
     depends_on:
       - mongo
     restart: unless-stopped

@@ -1,5 +1,5 @@
-import React, { useEffect, useState } from "react";
-import { ActivityIndicator, View, BackHandler, Alert, Modal, Text, TouchableOpacity, StyleSheet, ScrollView } from "react-native";
+import React, { useEffect, useState, useCallback } from "react";
+import { ActivityIndicator, View, BackHandler, Alert, Modal, Text, TouchableOpacity, StyleSheet, ScrollView, ToastAndroid, Platform } from "react-native";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -7,31 +7,41 @@ import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
 import * as Updates from "expo-updates";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useFocusEffect } from "@react-navigation/native";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import changelog from "./src/changelog.json";
 import LoginScreen from "./src/screens/LoginScreen";
 import RegisterScreen from "./src/screens/RegisterScreen";
-import HomeScreen from "./src/screens/HomeScreen";
+import HomeScreen from "./src/screens/HomeScreen_new";
 import TeamsScreen from "./src/screens/TeamsScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import AddEventScreen from "./src/screens/AddEventScreen";
+import TeamDetailScreen from "./src/screens/TeamDetailScreen";
 import OAuthRegisterScreen from "./src/screens/OAuthRegisterScreen";
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
 
-function MainTabs({ navigation }) {
-  useEffect(() => {
-    const sub = BackHandler.addEventListener("hardwareBackPress", () => {
-      if (!navigation.isFocused()) return false;
-      Alert.alert("앱 종료", "앱을 종료하시겠습니까?", [
-        { text: "취소", style: "cancel" },
-        { text: "종료", onPress: () => BackHandler.exitApp() },
-      ]);
-      return true;
-    });
-    return () => sub.remove();
-  }, [navigation]);
+function MainTabs() {
+  const lastBackPress = React.useRef(0);
+
+  useFocusEffect(
+    useCallback(() => {
+      const sub = BackHandler.addEventListener("hardwareBackPress", () => {
+        const now = Date.now();
+        if (now - lastBackPress.current < 2000) {
+          BackHandler.exitApp();
+        } else {
+          lastBackPress.current = now;
+          if (Platform.OS === "android") {
+            ToastAndroid.show("한 번 더 누르면 종료됩니다", ToastAndroid.SHORT);
+          }
+        }
+        return true;
+      });
+      return () => sub.remove();
+    }, [])
+  );
 
   return (
     <Tab.Navigator
@@ -76,6 +86,7 @@ function RootNavigator() {
     >
       <Stack.Screen name="Main" component={MainTabs} />
       <Stack.Screen name="AddEvent" component={AddEventScreen} options={{ presentation: "modal" }} />
+      <Stack.Screen name="TeamDetail" component={TeamDetailScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
       <Stack.Screen name="OAuthRegister" component={OAuthRegisterScreen} />

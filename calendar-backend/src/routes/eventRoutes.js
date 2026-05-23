@@ -19,18 +19,17 @@ const { protect } = require("../middleware/authMiddleware");
 
 router.use(protect);
 
-// 基础 CRUD
+// 고정 경로는 반드시 /:id 앞에 선언 (Express 라우트 순서 규칙)
 router.get("/", getEvents);
 router.post("/", createEvent);
 router.get("/categories", getCategories);
 router.get("/notifications", getNotifications);
 router.put("/publish", publishEvents);
+router.get("/team/:teamId", getTeamEvents);
+
 router.get("/:id", getEvent);
 router.put("/:id", updateEvent);
 router.delete("/:id", deleteEvent);
-
-// 团队日程
-router.get("/team/:teamId", getTeamEvents);
 
 // 参与人管理
 router.post("/:id/attendees", addAttendees);

@@ -1,35 +1,20 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  TextInput, Alert, ActivityIndicator, Modal, ScrollView,
+  TextInput, Alert, ActivityIndicator, Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import client from "../api/client";
-import { useAuth } from "../context/AuthContext";
 
-// 角色配置
-const ROLES = [
-  { value: "admin", label: "관리자", color: "#9B59B6", description: "일정 관리, 멤버 초대 가능" },
-  { value: "member", label: "멤버", color: "#4A90E2", description: "일정 생성 및 조회 가능" },
-  { value: "guest", label: "게스트", color: "#7f8c8d", description: "일정 조회만 가능" },
-];
-
-export default function TeamsScreen() {
-  const { user } = useAuth();
+export default function TeamsScreen({ navigation }) {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState(null);
-  const [teamMembers, setTeamMembers] = useState(null);
-  const [myRole, setMyRole] = useState(null);
 
   // 모달 상태
   const [createModal, setCreateModal] = useState(false);
   const [joinModal, setJoinModal] = useState(false);
-  const [detailModal, setDetailModal] = useState(false);
-  const [inviteModal, setInviteModal] = useState(false);
-  const [roleModal, setRoleModal] = useState(false);
-  const [selectedMember, setSelectedMember] = useState(null);
 
   // 입력값
   const [teamName, setTeamName] = useState("");
@@ -49,9 +34,7 @@ export default function TeamsScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchTeams();
-  }, []);
+  useFocusEffect(useCallback(() => { fetchTeams(); }, [fetchTeams]));
 
   // 팀 생성
   const handleCreateTeam = async () => {
@@ -81,134 +64,9 @@ export default function TeamsScreen() {
     }
   };
 
-  // 팀 상세 보기
-  const handleOpenDetail = async (team) => {
-    try {
-      const [teamData, membersData, roleData] = await Promise.all([
-        client.get(`/teams/${team._id}`),
-        client.get(`/teams/${team._id}/members`),
-        client.get(`/teams/${team._id}/my-role`),
-      ]);
-      setSelectedTeam(teamData.data);
-      setTeamMembers(membersData.data);
-      setMyRole(roleData.data.role);
-      setDetailModal(true);
-    } catch (e) {
-      Alert.alert("오류", "팀 정보를 불러오지 못했습니다.");
-    }
-  };
-
-  // 초대 링크 보기
-  const handleGetInviteLink = async (teamId) => {
-    try {
-      const { data } = await client.get(`/teams/${teamId}/invite`);
-      setInviteCode(data.inviteCode);
-      setInviteModal(true);
-    } catch (e) {
-      Alert.alert("오류", e.response?.data?.message || "초대 링크를 불러오지 못했습니다.");
-    }
-  };
-
-  // 초대 코드 재생성
-  const handleRegenerateInvite = async (teamId) => {
-    try {
-      const { data } = await client.post(`/teams/${teamId}/regenerate-invite`);
-      setInviteCode(data.inviteCode);
-      Alert.alert("완료", "초대 코드가 재생성되었습니다.");
-    } catch (e) {
-      Alert.alert("오류", e.response?.data?.message || "재생성에 실패했습니다.");
-    }
-  };
-
-  // 팀 나가기
-  const handleLeaveTeam = (teamId) => {
-    Alert.alert("팀 나가기", "정말 이 팀을 나가시겠습니까?", [
-      { text: "취소", style: "cancel" },
-      {
-        text: "나가기", style: "destructive", onPress: async () => {
-          try {
-            await client.post(`/teams/${teamId}/leave`);
-            setDetailModal(false);
-            fetchTeams();
-          } catch (e) {
-            Alert.alert("오류", e.response?.data?.message || "팀 나가기에 실패했습니다.");
-          }
-        }
-      }
-    ]);
-  };
-
-  // 팀 삭제
-  const handleDeleteTeam = (teamId) => {
-    Alert.alert("팀 삭제", "정말 이 팀을 삭제하시겠습니까?", [
-      { text: "취소", style: "cancel" },
-      {
-        text: "삭제", style: "destructive", onPress: async () => {
-          try {
-            await client.delete(`/teams/${teamId}`);
-            setDetailModal(false);
-            fetchTeams();
-          } catch (e) {
-            Alert.alert("오류", e.response?.data?.message || "팀 삭제에 실패했습니다.");
-          }
-        }
-      }
-    ]);
-  };
-
-  // 멤버 강퇴 (팀장만)
-  const handleRemoveMember = (member) => {
-    Alert.alert("멤버 강퇴", `${member.name}님을 강퇴하시겠습니까?`, [
-      { text: "취소", style: "cancel" },
-      {
-        text: "강퇴", style: "destructive", onPress: async () => {
-          try {
-            await client.delete(`/teams/${selectedTeam._id}/members/${member._id}`);
-            // 刷新成员列表
-            const { data } = await client.get(`/teams/${selectedTeam._id}/members`);
-            setTeamMembers(data);
-          } catch (e) {
-            Alert.alert("오류", e.response?.data?.message || "강퇴에 실패했습니다.");
-          }
-        }
-      }
-    ]);
-  };
-
-  // 修改成员角色
-  const handleChangeRole = (member) => {
-    setSelectedMember(member);
-    setRoleModal(true);
-  };
-
-  const handleUpdateRole = async (newRole) => {
-    if (!selectedMember) return;
-    try {
-      await client.put(`/teams/${selectedTeam._id}/members/${selectedMember._id}/role`, { role: newRole });
-      // 刷新成员列表
-      const { data } = await client.get(`/teams/${selectedTeam._id}/members`);
-      setTeamMembers(data);
-      setRoleModal(false);
-      setSelectedMember(null);
-      Alert.alert("완료", "역할이 변경되었습니다.");
-    } catch (e) {
-      Alert.alert("오류", e.response?.data?.message || "역할 변경에 실패했습니다.");
-    }
-  };
-
-  const getRoleBadge = (role) => {
-    const roleConfig = ROLES.find(r => r.value === role) || ROLES[1];
-    return (
-      <View style={[styles.roleBadge, { backgroundColor: `${roleConfig.color}20` }]}>
-        <Text style={[styles.roleBadgeText, { color: roleConfig.color }]}>
-          {role === "owner" ? "팀장" : roleConfig.label}
-        </Text>
-      </View>
-    );
-  };
 
   const renderTeamItem = ({ item }) => (
-    <TouchableOpacity style={styles.teamCard} onPress={() => handleOpenDetail(item)}>
+    <TouchableOpacity style={styles.teamCard} onPress={() => navigation.navigate("TeamDetail", { teamId: item._id })}>
       <View style={styles.teamIconBox}>
         <Text style={styles.teamIconText}>{item.name[0]?.toUpperCase()}</Text>
       </View>
@@ -220,43 +78,6 @@ export default function TeamsScreen() {
       <Ionicons name="chevron-forward" size={18} color="#ccc" />
     </TouchableOpacity>
   );
-
-  const renderMemberSection = (title, members, showActions = false) => {
-    if (!members || members.length === 0) return null;
-    return (
-      <View style={styles.memberSection}>
-        <Text style={styles.memberSectionTitle}>{title} ({members.length}명)</Text>
-        {members.map((m) => (
-          <View key={m._id} style={styles.memberRow}>
-            <View style={styles.memberAvatar}>
-              <Text style={styles.memberAvatarText}>{m.name[0]?.toUpperCase()}</Text>
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.memberName}>{m.name}</Text>
-              <Text style={styles.memberEmail}>{m.email}</Text>
-            </View>
-            {getRoleBadge(m.role)}
-            {showActions && m.role !== "owner" && myRole === "owner" && (
-              <View style={styles.memberActions}>
-                <TouchableOpacity 
-                  style={styles.actionBtn}
-                  onPress={() => handleChangeRole(m)}
-                >
-                  <Ionicons name="person-outline" size={16} color="#4A90E2" />
-                </TouchableOpacity>
-                <TouchableOpacity 
-                  style={styles.actionBtn}
-                  onPress={() => handleRemoveMember(m)}
-                >
-                  <Ionicons name="close-outline" size={16} color="#e74c3c" />
-                </TouchableOpacity>
-              </View>
-            )}
-          </View>
-        ))}
-      </View>
-    );
-  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -355,125 +176,6 @@ export default function TeamsScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* 팀 상세 모달 */}
-      <Modal visible={detailModal} transparent animationType="slide">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDetailModal(false)}>
-          <View style={[styles.modalBox, { maxHeight: "85%" }]} onStartShouldSetResponder={() => true}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>{selectedTeam?.name}</Text>
-              {myRole && (
-                <View style={[styles.myRoleBadge, { backgroundColor: myRole === "owner" ? "#e8f0fb" : "#f5f6fa" }]}>
-                  <Text style={[styles.myRoleText, { color: myRole === "owner" ? "#4A90E2" : "#7f8c8d" }]}>
-                    내 역할: {myRole === "owner" ? "팀장" : myRole === "admin" ? "관리자" : myRole === "member" ? "멤버" : "게스트"}
-                  </Text>
-                </View>
-              )}
-            </View>
-            {selectedTeam?.description ? (
-              <Text style={styles.teamDescModal}>{selectedTeam.description}</Text>
-            ) : null}
-
-            {/* 역할별 멤버 목록 */}
-            <ScrollView style={{ maxHeight: 300 }}>
-              {teamMembers && (
-                <>
-                  {renderMemberSection("팀장", teamMembers.owner)}
-                  {renderMemberSection("관리자", teamMembers.admins)}
-                  {renderMemberSection("멤버", teamMembers.members, true)}
-                  {renderMemberSection("게스트", teamMembers.guests, true)}
-                </>
-              )}
-            </ScrollView>
-
-            {/* 초대 버튼 */}
-            <TouchableOpacity
-              style={styles.inviteBtn}
-              onPress={() => handleGetInviteLink(selectedTeam?._id)}
-            >
-              <Ionicons name="link-outline" size={16} color="#4A90E2" />
-              <Text style={styles.inviteBtnText}>초대 코드 보기</Text>
-            </TouchableOpacity>
-
-            <View style={styles.modalBtns}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setDetailModal(false)}>
-                <Text style={styles.cancelBtnText}>닫기</Text>
-              </TouchableOpacity>
-              {myRole !== "owner" && (
-                <TouchableOpacity
-                  style={styles.leaveBtn}
-                  onPress={() => handleLeaveTeam(selectedTeam?._id)}
-                >
-                  <Text style={styles.leaveBtnText}>나가기</Text>
-                </TouchableOpacity>
-              )}
-              {myRole === "owner" && (
-                <TouchableOpacity
-                  style={styles.deleteBtn}
-                  onPress={() => handleDeleteTeam(selectedTeam?._id)}
-                >
-                  <Text style={styles.deleteBtnText}>삭제</Text>
-                </TouchableOpacity>
-              )}
-            </View>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* 역할 변경 모달 */}
-      <Modal visible={roleModal} transparent animationType="slide">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setRoleModal(false)}>
-          <View style={styles.modalBox} onStartShouldSetResponder={() => true}>
-            <Text style={styles.modalTitle}>역할 변경</Text>
-            <Text style={styles.roleMemberName}>{selectedMember?.name}님의 역할을 변경합니다</Text>
-            
-            {ROLES.map((role) => (
-              <TouchableOpacity
-                key={role.value}
-                style={[
-                  styles.roleOption,
-                  selectedMember?.role === role.value && styles.roleOptionActive,
-                ]}
-                onPress={() => handleUpdateRole(role.value)}
-              >
-                <View style={[styles.roleDot, { backgroundColor: role.color }]} />
-                <View style={styles.roleInfo}>
-                  <Text style={styles.roleLabel}>{role.label}</Text>
-                  <Text style={styles.roleDesc}>{role.description}</Text>
-                </View>
-                {selectedMember?.role === role.value && (
-                  <Ionicons name="checkmark" size={22} color="#4A90E2" />
-                )}
-              </TouchableOpacity>
-            ))}
-
-            <TouchableOpacity style={styles.cancelBtn} onPress={() => setRoleModal(false)}>
-              <Text style={styles.cancelBtnText}>취소</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* 초대 코드 모달 */}
-      <Modal visible={inviteModal} transparent animationType="fade">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setInviteModal(false)}>
-          <View style={styles.modalBox} onStartShouldSetResponder={() => true}>
-            <Text style={styles.modalTitle}>초대 코드</Text>
-            <View style={styles.codeBox}>
-              <Text style={styles.codeText}>{inviteCode}</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.regenBtn}
-              onPress={() => handleRegenerateInvite(selectedTeam?._id)}
-            >
-              <Ionicons name="refresh-outline" size={16} color="#7f8c8d" />
-              <Text style={styles.regenBtnText}>코드 재생성</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.confirmBtn} onPress={() => setInviteModal(false)}>
-              <Text style={styles.confirmBtnText}>닫기</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 }

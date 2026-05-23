@@ -24,10 +24,10 @@ router.get("/", getMyTeams);
 router.get("/:id", getTeam);
 router.delete("/:id", deleteTeam);
 
-// 成员管理
+// 멤버 관리
+router.post("/member-role", updateMemberRole);
 router.get("/:id/members", getMembers);
 router.get("/:id/my-role", getMyRole);
-router.put("/:id/members/:userId/role", updateMemberRole);
 
 // 邀请
 router.get("/:id/invite", getInviteLink);

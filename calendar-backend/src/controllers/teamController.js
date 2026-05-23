@@ -41,17 +41,17 @@ const getMembers = async (req, res) => {
     if (!team) return res.status(404).json({ message: "팀을 찾을 수 없습니다." });
     
     // 检查用户是否是团队成员
-    if (!team.members.some(m => m._id.toString() === req.user._id.toString())) {
+    if (!team.members.some(m => m.toString() === req.user._id.toString())) {
       return res.status(403).json({ message: "팀 멤버만 조회할 수 있습니다." });
     }
 
     // 获取所有成员信息
-    const memberIds = team.members.map(m => m._id || m);
+    const memberIds = team.members.map(m => m);
     const users = await User.find({ _id: { $in: memberIds } }).select("_id name email");
-    
+
     const members = users.map(user => {
       let role = "member"; // 默认角色
-      if (team.owner.toString() === user._id.toString()) {
+      if (team.owner._id.toString() === user._id.toString()) {
         role = "owner";
       } else {
         role = team.memberRoles?.get(user._id.toString()) || "member";
@@ -109,37 +109,36 @@ const getPermissionsByRole = (role) => {
   return permissions[role] || [];
 };
 
-// 修改成员角色
+// 역할 변경
 const updateMemberRole = async (req, res) => {
   try {
-    const { id: teamId, userId } = req.params;
-    const { role } = req.body;
+    const { teamId, userId, role } = req.body;
+
+    const validRoles = ["admin", "member", "guest"];
+    if (!validRoles.includes(role)) {
+      return res.status(400).json({ message: "유효하지 않은 역할입니다." });
+    }
 
     const team = await Team.findById(teamId);
     if (!team) return res.status(404).json({ message: "팀을 찾을 수 없습니다." });
 
-    // 检查权限：只有 owner 可以修改角色
-    const myRole = team.getUserRole(req.user._id);
-    if (myRole !== "owner") {
+    if (team.owner.toString() !== req.user._id.toString()) {
       return res.status(403).json({ message: "팀장만 역할을 변경할 수 있습니다." });
     }
 
-    // 不能修改自己的角色
     if (userId === team.owner.toString()) {
       return res.status(400).json({ message: "팀장의 역할은 변경할 수 없습니다." });
     }
 
-    // 验证角色值
-    if (!Team.ROLE_ENUM.includes(role)) {
-      return res.status(400).json({ message: "유효하지 않은 역할입니다." });
+    if (!team.members.some(m => m.toString() === userId)) {
+      return res.status(404).json({ message: "해당 멤버를 찾을 수 없습니다." });
     }
 
-    // 更新角色
-    if (!team.memberRoles) {
-      team.memberRoles = new Map();
-    }
-    team.memberRoles.set(userId, role);
-    await team.save();
+    // dot notation으로 Map 필드 직접 업데이트 (Mongoose Map 직렬화 우회)
+    await Team.findByIdAndUpdate(
+      teamId,
+      { $set: { [`memberRoles.${userId}`]: role } }
+    );
 
     res.json({ message: "역할이 변경되었습니다.", role });
   } catch (error) {
