@@ -1,24 +1,20 @@
-import React, { useState, useEffect, useCallback } from "react";
+import React, { useState, useCallback } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
-  TextInput, Alert, ActivityIndicator, Modal, ScrollView,
+  TextInput, Alert, ActivityIndicator, Modal,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
+import { useFocusEffect } from "@react-navigation/native";
 import client from "../api/client";
-import { useAuth } from "../context/AuthContext";
 
-export default function TeamsScreen() {
-  const { user } = useAuth();
+export default function TeamsScreen({ navigation }) {
   const [teams, setTeams] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [selectedTeam, setSelectedTeam] = useState(null);
 
   // 모달 상태
   const [createModal, setCreateModal] = useState(false);
   const [joinModal, setJoinModal] = useState(false);
-  const [detailModal, setDetailModal] = useState(false);
-  const [inviteModal, setInviteModal] = useState(false);
 
   // 입력값
   const [teamName, setTeamName] = useState("");
@@ -38,9 +34,7 @@ export default function TeamsScreen() {
     }
   }, []);
 
-  useEffect(() => {
-    fetchTeams();
-  }, []);
+  useFocusEffect(useCallback(() => { fetchTeams(); }, [fetchTeams]));
 
   // 팀 생성
   const handleCreateTeam = async () => {
@@ -70,95 +64,9 @@ export default function TeamsScreen() {
     }
   };
 
-  // 팀 상세 보기
-  const handleOpenDetail = async (team) => {
-    try {
-      const { data } = await client.get(`/teams/${team._id}`);
-      setSelectedTeam(data);
-      setDetailModal(true);
-    } catch (e) {
-      Alert.alert("오류", "팀 정보를 불러오지 못했습니다.");
-    }
-  };
-
-  // 초대 링크 보기
-  const handleGetInviteLink = async (teamId) => {
-    try {
-      const { data } = await client.get(`/teams/${teamId}/invite`);
-      setInviteCode(data.inviteCode);
-      setInviteModal(true);
-    } catch (e) {
-      Alert.alert("오류", e.response?.data?.message || "초대 링크를 불러오지 못했습니다.");
-    }
-  };
-
-  // 초대 코드 재생성
-  const handleRegenerateInvite = async (teamId) => {
-    try {
-      const { data } = await client.post(`/teams/${teamId}/invite/regenerate`);
-      setInviteCode(data.inviteCode);
-      Alert.alert("완료", "초대 코드가 재생성되었습니다.");
-    } catch (e) {
-      Alert.alert("오류", e.response?.data?.message || "재생성에 실패했습니다.");
-    }
-  };
-
-  // 팀 나가기
-  const handleLeaveTeam = (teamId) => {
-    Alert.alert("팀 나가기", "정말 이 팀을 나가시겠습니까?", [
-      { text: "취소", style: "cancel" },
-      {
-        text: "나가기", style: "destructive", onPress: async () => {
-          try {
-            await client.post(`/teams/${teamId}/leave`);
-            setDetailModal(false);
-            fetchTeams();
-          } catch (e) {
-            Alert.alert("오류", e.response?.data?.message || "팀 나가기에 실패했습니다.");
-          }
-        }
-      }
-    ]);
-  };
-
-  // 팀 삭제
-  const handleDeleteTeam = (teamId) => {
-    Alert.alert("팀 삭제", "정말 이 팀을 삭제하시겠습니까?", [
-      { text: "취소", style: "cancel" },
-      {
-        text: "삭제", style: "destructive", onPress: async () => {
-          try {
-            await client.delete(`/teams/${teamId}`);
-            setDetailModal(false);
-            fetchTeams();
-          } catch (e) {
-            Alert.alert("오류", e.response?.data?.message || "팀 삭제에 실패했습니다.");
-          }
-        }
-      }
-    ]);
-  };
-
-  // 멤버 강퇴 (팀장만)
-  const handleRemoveMember = (teamId, memberId, memberName) => {
-    Alert.alert("멤버 강퇴", `${memberName}님을 강퇴하시겠습니까?`, [
-      { text: "취소", style: "cancel" },
-      {
-        text: "강퇴", style: "destructive", onPress: async () => {
-          try {
-            await client.delete(`/teams/${teamId}/members/${memberId}`);
-            const { data } = await client.get(`/teams/${teamId}`);
-            setSelectedTeam(data);
-          } catch (e) {
-            Alert.alert("오류", e.response?.data?.message || "강퇴에 실패했습니다.");
-          }
-        }
-      }
-    ]);
-  };
 
   const renderTeamItem = ({ item }) => (
-    <TouchableOpacity style={styles.teamCard} onPress={() => handleOpenDetail(item)}>
+    <TouchableOpacity style={styles.teamCard} onPress={() => navigation.navigate("TeamDetail", { teamId: item._id })}>
       <View style={styles.teamIconBox}>
         <Text style={styles.teamIconText}>{item.name[0]?.toUpperCase()}</Text>
       </View>
@@ -268,93 +176,6 @@ export default function TeamsScreen() {
         </TouchableOpacity>
       </Modal>
 
-      {/* 팀 상세 모달 */}
-      <Modal visible={detailModal} transparent animationType="slide">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDetailModal(false)}>
-          <View style={[styles.modalBox, { maxHeight: "80%" }]} onStartShouldSetResponder={() => true}>
-            <Text style={styles.modalTitle}>{selectedTeam?.name}</Text>
-            {selectedTeam?.description ? (
-              <Text style={styles.teamDescModal}>{selectedTeam.description}</Text>
-            ) : null}
-
-            <Text style={styles.memberLabel}>멤버 ({selectedTeam?.members?.length}명)</Text>
-            <ScrollView style={{ maxHeight: 160 }}>
-              {selectedTeam?.members?.map((m) => (
-                <View key={m._id} style={styles.memberRow}>
-                  <View style={styles.memberAvatar}>
-                    <Text style={styles.memberAvatarText}>{m.name[0]?.toUpperCase()}</Text>
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.memberName}>{m.name}</Text>
-                    <Text style={styles.memberEmail}>{m.email}</Text>
-                  </View>
-                  {selectedTeam?.owner?._id === m._id ? (
-                    <View style={styles.ownerBadge}>
-                      <Text style={styles.ownerBadgeText}>팀장</Text>
-                    </View>
-                  ) : selectedTeam?.owner?._id === user?._id ? (
-                    <TouchableOpacity
-                      style={styles.kickBtn}
-                      onPress={() => handleRemoveMember(selectedTeam._id, m._id, m.name)}
-                    >
-                      <Text style={styles.kickBtnText}>강퇴</Text>
-                    </TouchableOpacity>
-                  ) : null}
-                </View>
-              ))}
-            </ScrollView>
-
-            {/* 초대 버튼 */}
-            <TouchableOpacity
-              style={styles.inviteBtn}
-              onPress={() => handleGetInviteLink(selectedTeam?._id)}
-            >
-              <Ionicons name="link-outline" size={16} color="#4A90E2" />
-              <Text style={styles.inviteBtnText}>초대 코드 보기</Text>
-            </TouchableOpacity>
-
-            <View style={styles.modalBtns}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setDetailModal(false)}>
-                <Text style={styles.cancelBtnText}>닫기</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.leaveBtn}
-                onPress={() => handleLeaveTeam(selectedTeam?._id)}
-              >
-                <Text style={styles.leaveBtnText}>나가기</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.deleteBtn}
-                onPress={() => handleDeleteTeam(selectedTeam?._id)}
-              >
-                <Text style={styles.deleteBtnText}>삭제</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </TouchableOpacity>
-      </Modal>
-
-      {/* 초대 코드 모달 */}
-      <Modal visible={inviteModal} transparent animationType="fade">
-        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setInviteModal(false)}>
-          <View style={styles.modalBox} onStartShouldSetResponder={() => true}>
-            <Text style={styles.modalTitle}>초대 코드</Text>
-            <View style={styles.codeBox}>
-              <Text style={styles.codeText}>{inviteCode}</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.regenBtn}
-              onPress={() => handleRegenerateInvite(selectedTeam?._id)}
-            >
-              <Ionicons name="refresh-outline" size={16} color="#7f8c8d" />
-              <Text style={styles.regenBtnText}>코드 재생성</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.confirmBtn} onPress={() => setInviteModal(false)}>
-              <Text style={styles.confirmBtnText}>닫기</Text>
-            </TouchableOpacity>
-          </View>
-        </TouchableOpacity>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -405,7 +226,12 @@ const styles = StyleSheet.create({
   modalBox: {
     backgroundColor: "#fff", borderRadius: 16, padding: 20, width: "100%",
   },
+  modalHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 8 },
   modalTitle: { fontSize: 18, fontWeight: "bold", color: "#2c3e50", marginBottom: 16 },
+  myRoleBadge: {
+    paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12,
+  },
+  myRoleText: { fontSize: 12, fontWeight: "600" },
   input: {
     backgroundColor: "#f5f6fa", borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12,
     fontSize: 15, color: "#2c3e50", marginBottom: 12, borderWidth: 1, borderColor: "#e0e0e0",
@@ -431,7 +257,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#e74c3c",
   },
   deleteBtnText: { color: "#fff", fontSize: 15, fontWeight: "600" },
-  memberLabel: { fontSize: 13, color: "#7f8c8d", marginBottom: 8, fontWeight: "600" },
+  // Member styles
+  memberSection: { marginBottom: 16 },
+  memberSectionTitle: { 
+    fontSize: 12, color: "#7f8c8d", marginBottom: 8, fontWeight: "600",
+    textTransform: "uppercase", letterSpacing: 0.5,
+  },
   memberRow: {
     flexDirection: "row", alignItems: "center", paddingVertical: 8,
     borderBottomWidth: 1, borderBottomColor: "#f0f0f0",
@@ -443,11 +274,28 @@ const styles = StyleSheet.create({
   memberAvatarText: { color: "#4A90E2", fontWeight: "bold", fontSize: 14 },
   memberName: { fontSize: 14, fontWeight: "600", color: "#2c3e50" },
   memberEmail: { fontSize: 12, color: "#aaa" },
-  ownerBadge: {
-    marginLeft: "auto", backgroundColor: "#e8f0fb", borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 3,
+  roleBadge: {
+    marginLeft: 8, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
   },
-  ownerBadgeText: { color: "#4A90E2", fontSize: 11, fontWeight: "600" },
+  roleBadgeText: { fontSize: 11, fontWeight: "600" },
+  memberActions: { flexDirection: "row", gap: 4, marginLeft: 8 },
+  actionBtn: {
+    width: 28, height: 28, borderRadius: 14, backgroundColor: "#f5f6fa",
+    justifyContent: "center", alignItems: "center",
+  },
+  // Role change modal
+  roleMemberName: { fontSize: 14, color: "#7f8c8d", marginBottom: 16 },
+  roleOption: {
+    flexDirection: "row", alignItems: "center", padding: 12, marginBottom: 8,
+    backgroundColor: "#f5f6fa", borderRadius: 10, gap: 12,
+    borderWidth: 1, borderColor: "#e0e0e0",
+  },
+  roleOptionActive: { borderColor: "#4A90E2", backgroundColor: "#f0f7ff" },
+  roleDot: { width: 10, height: 10, borderRadius: 5 },
+  roleInfo: { flex: 1 },
+  roleLabel: { fontSize: 14, fontWeight: "600", color: "#2c3e50" },
+  roleDesc: { fontSize: 12, color: "#7f8c8d", marginTop: 2 },
+  // Etc
   inviteBtn: {
     flexDirection: "row", alignItems: "center", justifyContent: "center",
     paddingVertical: 10, marginTop: 12, gap: 6,
@@ -465,9 +313,4 @@ const styles = StyleSheet.create({
     gap: 4, marginBottom: 12,
   },
   regenBtnText: { color: "#7f8c8d", fontSize: 13 },
-  kickBtn: {
-    backgroundColor: "#e74c3c", borderRadius: 6,
-    paddingHorizontal: 8, paddingVertical: 4,
-  },
-  kickBtnText: { color: "#fff", fontSize: 11, fontWeight: "600" },
 });
