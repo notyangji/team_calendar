@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from "react";
-import { ActivityIndicator, View, BackHandler, Alert, Modal, Text, TouchableOpacity, StyleSheet, ScrollView, ToastAndroid, Platform } from "react-native";
+import { ActivityIndicator, View, BackHandler, Alert, Modal, Text, TouchableOpacity, StyleSheet, ScrollView, ToastAndroid, Platform, Linking } from "react-native";
+import client from "./src/api/client";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
@@ -113,8 +114,39 @@ async function checkForUpdate() {
   }
 }
 
+const handleInviteLink = async (url) => {
+  if (!url) return;
+  // teamcalendar://join/CODE 또는 카카오 androidExecutionParams ?inviteCode=CODE
+  const directMatch = url.match(/teamcalendar:\/\/join\/([a-zA-Z0-9]+)/);
+  const paramMatch = url.match(/[?&]inviteCode=([a-zA-Z0-9]+)/);
+  const inviteCode = directMatch?.[1] || paramMatch?.[1];
+  if (!inviteCode) return;
+
+  Alert.alert("팀 초대", `초대 코드: ${inviteCode}\n팀에 참가하시겠습니까?`, [
+    { text: "취소", style: "cancel" },
+    {
+      text: "참가", onPress: async () => {
+        try {
+          await client.post("/teams/join", { inviteCode });
+          Alert.alert("성공", "팀에 참가했습니다!");
+        } catch (e) {
+          Alert.alert("오류", e?.response?.data?.message || "팀 참가에 실패했습니다.");
+        }
+      },
+    },
+  ]);
+};
+
 export default function App() {
   const [whatsNew, setWhatsNew] = useState(null);
+
+  useEffect(() => {
+    // 딥링크: 앱이 닫혀 있을 때 링크로 열린 경우
+    Linking.getInitialURL().then(handleInviteLink);
+    // 앱이 실행 중일 때 링크 수신
+    const sub = Linking.addEventListener("url", ({ url }) => handleInviteLink(url));
+    return () => sub.remove();
+  }, []);
 
   useEffect(() => {
     checkForUpdate();

@@ -3,6 +3,7 @@ import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
   ActivityIndicator, Alert, ScrollView, Modal,
 } from "react-native";
+import KakaoShareLink from "react-native-kakao-share-link";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Calendar, LocaleConfig } from "react-native-calendars";
 import { Ionicons } from "@expo/vector-icons";
@@ -140,6 +141,33 @@ export default function TeamDetailScreen({ navigation, route }) {
       setInviteCode(data.inviteCode);
     } catch (e) {
       Alert.alert("오류", "재생성에 실패했습니다.");
+    }
+  };
+
+  const handleKakaoShare = async () => {
+    try {
+      await KakaoShareLink.sendFeed({
+        content: {
+          title: `${team?.name} 팀 초대`,
+          imageUrl: "https://developers.kakao.com/assets/img/about/logos/kakaolink/kakaolink_btn_medium.png",
+          link: {
+            mobileWebUrl: "https://developers.kakao.com",
+            androidExecutionParams: [{ key: "inviteCode", value: inviteCode }],
+          },
+          desc: `초대 코드: ${inviteCode}`,
+        },
+        buttons: [
+          {
+            title: "팀 참가하기",
+            link: {
+              mobileWebUrl: "https://developers.kakao.com",
+              androidExecutionParams: [{ key: "inviteCode", value: inviteCode }],
+            },
+          },
+        ],
+      });
+    } catch (e) {
+      Alert.alert("오류", String(e?.message || e));
     }
   };
 
@@ -447,6 +475,9 @@ export default function TeamDetailScreen({ navigation, route }) {
               <Ionicons name="refresh-outline" size={15} color="#7f8c8d" />
               <Text style={styles.regenBtnText}>코드 재생성</Text>
             </TouchableOpacity>
+            <TouchableOpacity style={styles.kakaoBtn} onPress={handleKakaoShare}>
+              <Text style={styles.kakaoBtnText}>💬  카카오톡으로 초대</Text>
+            </TouchableOpacity>
             <TouchableOpacity style={styles.confirmBtn} onPress={() => setInviteVisible(false)}>
               <Text style={styles.confirmBtnText}>닫기</Text>
             </TouchableOpacity>
@@ -592,6 +623,11 @@ const styles = StyleSheet.create({
     gap: 4, marginBottom: 12,
   },
   regenBtnText: { color: "#7f8c8d", fontSize: 13 },
+  kakaoBtn: {
+    paddingVertical: 12, borderRadius: 10, alignItems: "center",
+    backgroundColor: "#FEE500", marginBottom: 8,
+  },
+  kakaoBtnText: { color: "#3C1E1E", fontSize: 15, fontWeight: "600" },
   confirmBtn: {
     paddingVertical: 12, borderRadius: 10, alignItems: "center", backgroundColor: "#4A90E2",
   },

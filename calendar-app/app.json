@@ -28,7 +28,8 @@
     },
     "plugins": [
       "expo-web-browser",
-      "expo-updates"
+      "expo-updates",
+      ["./plugins/withKakao", { "kakaoAppKey": "e16b8637e71bf8139b4e79de7313b7e5" }]
     ],
     "updates": {
       "url": "https://u.expo.dev/e0b6f762-4aee-4730-baf6-8f28b53e1fa4"
