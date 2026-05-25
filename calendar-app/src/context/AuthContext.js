@@ -38,7 +38,7 @@ export function AuthProvider({ children }) {
             setUser(data);
             await AsyncStorage.setItem("user", JSON.stringify({ ...data, token: storedToken }));
           } catch {
-            // 토큰 만료 등 — 인터셉터가 처리
+            // 토큰 만료 / 네트워크 오류 등 — 저장된 토큰으로만 진행
           }
         }
       } catch {

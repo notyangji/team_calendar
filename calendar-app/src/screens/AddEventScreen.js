@@ -489,6 +489,7 @@ export default function AddEventScreen({ navigation, route }) {
             <FlatList
               data={CATEGORIES}
               keyExtractor={(item) => item.value}
+              style={styles.modalList}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[styles.categoryItem, category === item.value && styles.categoryItemSelected]}
@@ -526,6 +527,7 @@ export default function AddEventScreen({ navigation, route }) {
               <FlatList
                 data={REMINDER_OPTIONS}
                 keyExtractor={(item) => item.value.toString()}
+                style={styles.modalList}
                 renderItem={({ item }) => (
                   <TouchableOpacity
                     style={[styles.categoryItem, reminderMinutes === item.value && styles.categoryItemSelected]}
@@ -556,6 +558,7 @@ export default function AddEventScreen({ navigation, route }) {
             <FlatList
               data={teamMembers}
               keyExtractor={(item) => item._id}
+              style={styles.modalList}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[styles.categoryItem, attendees.includes(item._id) && styles.categoryItemSelected]}
@@ -659,8 +662,9 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: "#fff", borderTopLeftRadius: 20, borderTopRightRadius: 20,
-    maxHeight: "70%",
+    maxHeight: "80%",
   },
+  modalList: { flexGrow: 0 },
   modalHeader: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
     padding: 16, borderBottomWidth: 1, borderBottomColor: "#eee",

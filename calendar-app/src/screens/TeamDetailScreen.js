@@ -21,6 +21,11 @@ LocaleConfig.defaultLocale = "ko";
 
 const today = new Date().toISOString().split("T")[0];
 
+const CATEGORY_COLORS = {
+  work: "#4A90E2", meeting: "#9B59B6", outdoor: "#27AE60",
+  vacation: "#F39C12", deadline: "#E74C3C", personal: "#1ABC9C",
+};
+
 const ROLES = [
   { value: "admin", label: "관리자", color: "#9B59B6", description: "일정 관리, 멤버 초대 가능" },
   { value: "member", label: "멤버", color: "#4A90E2", description: "일정 생성 및 조회 가능" },
@@ -82,10 +87,31 @@ export default function TeamDetailScreen({ navigation, route }) {
   const buildMarks = useCallback((list, selDate) => {
     const marks = {};
     list.forEach(ev => {
-      const d = ev?.startDate?.split?.("T")?.[0];
-      if (d) marks[d] = { marked: true, dotColor: "#4A90E2" };
+      const start = ev?.startDate?.split?.("T")?.[0];
+      const end = ev?.endDate?.split?.("T")?.[0] || start;
+      if (!start) return;
+      const color = CATEGORY_COLORS[ev.category] || "#4A90E2";
+      let cur = start;
+      let safety = 0;
+      while (cur <= end && safety++ < 366) {
+        const mark = { color };
+        if (cur === start) mark.startingDay = true;
+        if (cur === end) mark.endingDay = true;
+        marks[cur] = { ...(marks[cur] || {}), ...mark };
+        const d = new Date(cur + "T12:00:00.000Z");
+        d.setUTCDate(d.getUTCDate() + 1);
+        cur = d.toISOString().split("T")[0];
+      }
     });
-    marks[selDate] = { ...(marks[selDate] || {}), selected: true, selectedColor: "#4A90E2" };
+    const selColor = marks[selDate]?.color || "#4A90E2";
+    marks[selDate] = {
+      ...(marks[selDate] || {}),
+      color: selColor,
+      startingDay: marks[selDate]?.startingDay ?? true,
+      endingDay: marks[selDate]?.endingDay ?? true,
+      selected: true,
+      selectedColor: selColor,
+    };
     setMarkedDates(marks);
   }, []);
 
@@ -121,7 +147,11 @@ export default function TeamDetailScreen({ navigation, route }) {
   };
 
   const dayEvents = events.filter(e => {
-    try { return e?.startDate?.split?.("T")?.[0] === selectedDate; } catch { return false; }
+    try {
+      const start = e?.startDate?.split?.("T")?.[0];
+      const end = e?.endDate?.split?.("T")?.[0] || start;
+      return start && selectedDate >= start && selectedDate <= end;
+    } catch { return false; }
   });
 
   const handleGetInvite = async () => {
@@ -350,11 +380,13 @@ export default function TeamDetailScreen({ navigation, route }) {
           <Calendar
             current={today}
             onDayPress={handleDayPress}
+            markingType="period"
             markedDates={markedDates}
             theme={{
               todayTextColor: "#4A90E2",
               arrowColor: "#4A90E2",
               selectedDayBackgroundColor: "#4A90E2",
+              selectedDayTextColor: "#fff",
               dotColor: "#4A90E2",
               textDayFontSize: 14,
               textMonthFontSize: 16,

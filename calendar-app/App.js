@@ -101,14 +101,7 @@ async function checkForUpdate() {
     const update = await Updates.checkForUpdateAsync();
     if (!update.isAvailable) return;
     await Updates.fetchUpdateAsync();
-    Alert.alert(
-      "업데이트 완료",
-      "새 버전이 설치되었습니다. 지금 재시작할까요?",
-      [
-        { text: "나중에" },
-        { text: "재시작", onPress: async () => { try { await Updates.reloadAsync(); } catch {} } },
-      ]
-    );
+    await Updates.reloadAsync();
   } catch {
     // 네트워크 오류 등 무시
   }

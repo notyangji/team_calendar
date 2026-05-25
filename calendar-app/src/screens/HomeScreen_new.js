@@ -8,6 +8,7 @@ import { Calendar, LocaleConfig } from "react-native-calendars";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect } from "@react-navigation/native";
 import client from "../api/client";
+import { useAuth } from "../context/AuthContext";
 
 LocaleConfig.locales["ko"] = {
   monthNames: ["1월","2월","3월","4월","5월","6월","7월","8월","9월","10월","11월","12월"],
@@ -19,6 +20,11 @@ LocaleConfig.defaultLocale = "ko";
 
 const today = new Date().toISOString().split("T")[0];
 
+const CATEGORY_COLORS = {
+  work: "#4A90E2", meeting: "#9B59B6", outdoor: "#27AE60",
+  vacation: "#F39C12", deadline: "#E74C3C", personal: "#1ABC9C",
+};
+
 const formatTimeKr = (isoDate) => {
   const t = isoDate?.split("T")[1]?.slice(0, 5);
   if (!t) return "시간 미설정";
@@ -29,6 +35,7 @@ const formatTimeKr = (isoDate) => {
 };
 
 export default function HomeScreen({ navigation }) {
+  const { user } = useAuth();
   const [selectedDate, setSelectedDate] = useState(today);
   const [events, setEvents] = useState([]);
   const [markedDates, setMarkedDates] = useState({});
@@ -38,27 +45,54 @@ export default function HomeScreen({ navigation }) {
     setLoading(true);
     try {
       const { data } = await client.get("/events");
-      const list = Array.isArray(data) ? data : [];
+      const all = Array.isArray(data) ? data : [];
+      const myId = String(user?._id || user?.id || "");
+      const list = all.filter(ev => {
+        // 팀 이벤트 복사본(sourceTeam 있음): 참여자에 포함된 경우만 표시
+        if (ev.sourceTeam) {
+          if (!myId) return false;
+          return ev.attendees?.some(a => String(a.userId?._id || a.userId) === myId);
+        }
+        // 원본 팀 이벤트(team 있음): 참여자에 포함된 경우만 표시
+        if (ev.team) {
+          if (!myId) return false;
+          return ev.attendees?.some(a => String(a.userId?._id || a.userId) === myId);
+        }
+        // 순수 개인 이벤트
+        return true;
+      });
       setEvents(list);
 
       const marks = {};
       list.forEach((event) => {
         try {
-          const date = event?.startDate?.split?.("T")?.[0];
-          if (date) {
-            marks[date] = {
-              marked: true,
-              dotColor: "#4A90E2",
-            };
+          const start = event?.startDate?.split?.("T")?.[0];
+          const end = event?.endDate?.split?.("T")?.[0] || start;
+          if (!start) return;
+          const color = CATEGORY_COLORS[event.category] || "#4A90E2";
+          let cur = start;
+          let safety = 0;
+          while (cur <= end && safety++ < 366) {
+            const mark = { color };
+            if (cur === start) mark.startingDay = true;
+            if (cur === end) mark.endingDay = true;
+            marks[cur] = { ...(marks[cur] || {}), ...mark };
+            const d = new Date(cur + "T12:00:00.000Z");
+            d.setUTCDate(d.getUTCDate() + 1);
+            cur = d.toISOString().split("T")[0];
           }
         } catch (err) {
           console.error("이벤트 날짜 파싱 오류:", event, err);
         }
       });
+      const selColor = marks[selectedDate]?.color || "#4A90E2";
       marks[selectedDate] = {
         ...(marks[selectedDate] || {}),
+        color: selColor,
+        startingDay: marks[selectedDate]?.startingDay ?? true,
+        endingDay: marks[selectedDate]?.endingDay ?? true,
         selected: true,
-        selectedColor: "#4A90E2",
+        selectedColor: selColor,
       };
       setMarkedDates(marks);
     } catch (e) {
@@ -66,7 +100,7 @@ export default function HomeScreen({ navigation }) {
     } finally {
       setLoading(false);
     }
-  }, [selectedDate]);
+  }, [selectedDate, user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -79,12 +113,16 @@ export default function HomeScreen({ navigation }) {
     setMarkedDates((prev) => {
       const updated = { ...prev };
       Object.keys(updated).forEach((k) => {
-        updated[k] = { ...updated[k], selected: false };
+        if (updated[k].selected) updated[k] = { ...updated[k], selected: false };
       });
+      const selColor = updated[day.dateString]?.color || "#4A90E2";
       updated[day.dateString] = {
         ...(updated[day.dateString] || {}),
+        color: selColor,
+        startingDay: updated[day.dateString]?.startingDay ?? true,
+        endingDay: updated[day.dateString]?.endingDay ?? true,
         selected: true,
-        selectedColor: "#4A90E2",
+        selectedColor: selColor,
       };
       return updated;
     });
@@ -92,7 +130,9 @@ export default function HomeScreen({ navigation }) {
 
   const dayEvents = events.filter((e) => {
     try {
-      return e?.startDate?.split?.("T")?.[0] === selectedDate;
+      const start = e?.startDate?.split?.("T")?.[0];
+      const end = e?.endDate?.split?.("T")?.[0] || start;
+      return start && selectedDate >= start && selectedDate <= end;
     } catch {
       return false;
     }
@@ -126,11 +166,13 @@ export default function HomeScreen({ navigation }) {
       <Calendar
         current={today}
         onDayPress={handleDayPress}
+        markingType="period"
         markedDates={markedDates}
         theme={{
           todayTextColor: "#4A90E2",
           arrowColor: "#4A90E2",
           selectedDayBackgroundColor: "#4A90E2",
+          selectedDayTextColor: "#fff",
           dotColor: "#4A90E2",
           textDayFontSize: 14,
           textMonthFontSize: 16,

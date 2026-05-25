@@ -7,6 +7,7 @@ const API_URL = `${BACKEND_URL}/api`;
 const client = axios.create({
   baseURL: API_URL,
   headers: { "ngrok-skip-browser-warning": "true" },
+  timeout: 10000,
 });
 
 export const setAuthToken = (token) => {

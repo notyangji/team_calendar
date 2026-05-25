@@ -83,7 +83,7 @@ const createEvent = async (req, res) => {
       attendees: validAttendees,
     });
 
-    // 如果有团队，向其他成员发送通知
+    // 팀이 있으면 다른 멤버에게 알림 전송
     if (teamId) {
       const team = await Team.findById(teamId);
       const otherMembers = team.members.filter(
@@ -91,20 +91,29 @@ const createEvent = async (req, res) => {
       );
       await createNotification(event, "created", otherMembers);
 
-      // 为其他成员创建副本
-      await Promise.all(
-        otherMembers.map((memberId) =>
-          Event.create({
-            title, description, startDate, endDate, allDay,
-            team: null,
-            createdBy: memberId,
-            sourceTeam: teamId,
-            isPublic: false,
-            category: category || "personal",
-            tags: tags || [],
-          })
-        )
-      );
+      // attendees가 지정된 경우: 해당 attendees(팀원 중)에게만 개인 캘린더 복사본 생성
+      // attendees가 없으면 개인 캘린더에 복사본 생성 안 함 (팀 캘린더에서만 확인)
+      const attendeeIds = validAttendees.map(a => a.userId.toString());
+      const copyTargets = attendeeIds.length > 0
+        ? otherMembers.filter(m => attendeeIds.includes(m.toString()))
+        : [];
+
+      if (copyTargets.length > 0) {
+        await Promise.all(
+          copyTargets.map((memberId) =>
+            Event.create({
+              title, description, startDate, endDate, allDay,
+              team: null,
+              createdBy: memberId,
+              sourceTeam: teamId,
+              isPublic: false,
+              category: category || "personal",
+              tags: tags || [],
+              attendees: validAttendees,
+            })
+          )
+        );
+      }
     }
 
     const populated = await Event.findById(event._id)
