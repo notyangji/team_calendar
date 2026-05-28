@@ -510,37 +510,38 @@ export default function AddEventScreen({ navigation, route }) {
       {/* 提醒选择弹窗 */}
       <Modal visible={showReminderModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, styles.reminderModalContent]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>알림 설정</Text>
               <TouchableOpacity onPress={() => setShowReminderModal(false)}>
                 <Ionicons name="close" size={24} color="#2c3e50" />
               </TouchableOpacity>
             </View>
-            
+
             <View style={styles.reminderToggle}>
               <Text style={styles.optionLabel}>알림 켜기</Text>
               <Switch value={reminderEnabled} onValueChange={setReminderEnabled} trackColor={{ true: "#4A90E2" }} />
             </View>
-            
-            {reminderEnabled && (
-              <FlatList
-                data={REMINDER_OPTIONS}
-                keyExtractor={(item) => item.value.toString()}
-                style={styles.modalList}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={[styles.categoryItem, reminderMinutes === item.value && styles.categoryItemSelected]}
-                    onPress={() => { setReminderMinutes(item.value); setShowReminderModal(false); }}
-                  >
-                    <Text style={styles.categoryLabel}>{item.label}</Text>
-                    {reminderMinutes === item.value && (
-                      <Ionicons name="checkmark" size={22} color="#4A90E2" />
-                    )}
-                  </TouchableOpacity>
-                )}
-              />
-            )}
+
+            <FlatList
+              data={reminderEnabled ? REMINDER_OPTIONS : []}
+              keyExtractor={(item) => item.value.toString()}
+              style={{ flex: 1 }}
+              ListEmptyComponent={
+                <Text style={styles.reminderOffText}>알림이 꺼져 있습니다.</Text>
+              }
+              renderItem={({ item }) => (
+                <TouchableOpacity
+                  style={[styles.categoryItem, reminderMinutes === item.value && styles.categoryItemSelected]}
+                  onPress={() => { setReminderMinutes(item.value); setShowReminderModal(false); }}
+                >
+                  <Text style={styles.categoryLabel}>{item.label}</Text>
+                  {reminderMinutes === item.value && (
+                    <Ionicons name="checkmark" size={22} color="#4A90E2" />
+                  )}
+                </TouchableOpacity>
+              )}
+            />
           </View>
         </View>
       </Modal>
@@ -548,7 +549,7 @@ export default function AddEventScreen({ navigation, route }) {
       {/* 参与人选择弹窗 */}
       <Modal visible={showAttendeeModal} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={[styles.modalContent, styles.attendeeModalContent]}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>참여자 선택</Text>
               <TouchableOpacity onPress={() => setShowAttendeeModal(false)}>
@@ -558,7 +559,7 @@ export default function AddEventScreen({ navigation, route }) {
             <FlatList
               data={teamMembers}
               keyExtractor={(item) => item._id}
-              style={styles.modalList}
+              style={{ flex: 1 }}
               renderItem={({ item }) => (
                 <TouchableOpacity
                   style={[styles.categoryItem, attendees.includes(item._id) && styles.categoryItemSelected]}
@@ -676,6 +677,11 @@ const styles = StyleSheet.create({
   },
   categoryItemSelected: { backgroundColor: "#f0f7ff" },
   categoryLabel: { fontSize: 15, color: "#2c3e50", flex: 1 },
+  reminderModalContent: { height: "70%" },
+  attendeeModalContent: { height: "50%" },
+  reminderOffText: {
+    textAlign: "center", marginTop: 40, fontSize: 14, color: "#aaa",
+  },
   reminderToggle: {
     flexDirection: "row", justifyContent: "space-between", alignItems: "center",
     padding: 16, borderBottomWidth: 1, borderBottomColor: "#eee",

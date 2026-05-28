@@ -114,6 +114,21 @@ const createEvent = async (req, res) => {
           )
         );
       }
+
+      // 생성자 본인이 참여자에 포함된 경우 개인 캘린더에도 복사본 생성
+      const creatorIsAttendee = attendeeIds.includes(req.user._id.toString());
+      if (creatorIsAttendee) {
+        await Event.create({
+          title, description, startDate, endDate, allDay,
+          team: null,
+          createdBy: req.user._id,
+          sourceTeam: teamId,
+          isPublic: false,
+          category: category || "personal",
+          tags: tags || [],
+          attendees: validAttendees,
+        });
+      }
     }
 
     const populated = await Event.findById(event._id)
@@ -139,18 +154,15 @@ const getEvents = async (req, res) => {
       const myRole = team.getUserRole(req.user._id);
       if (!myRole) return res.status(403).json({ message: "팀 멤버가 아닙니다." });
       
-      // guest 只能查看公开日程
-      if (myRole === "guest") {
-        filter.team = teamId;
-        filter.isPublic = true;
-      } else {
-        filter.team = teamId;
-      }
+      // 게스트 포함 모든 팀 멤버 팀 일정 조회 가능 (생성/수정/삭제만 제한)
+      filter.team = teamId;
     } else {
-      // 查自己的日程 + 共享给我的公开日程
+      const userTeamIds = await getUserTeamIds(req.user._id);
       filter.$or = [
         { createdBy: req.user._id, team: null },
-        { isPublic: true, appliedTeams: { $elemMatch: { $in: await getUserTeamIds(req.user._id) } } },
+        { isPublic: true, appliedTeams: { $elemMatch: { $in: userTeamIds } } },
+        // 팀 일정 중 나를 참여자로 지정한 일정
+        { "attendees.userId": req.user._id, team: { $in: userTeamIds } },
       ];
     }
 
@@ -205,11 +217,6 @@ const getTeamEvents = async (req, res) => {
       .populate("createdBy", "name email")
       .populate("attendees.userId", "name email")
       .sort({ startDate: 1 });
-
-    // 如果是 guest，只返回公开日程
-    if (myRole === "guest") {
-      return res.json(events.filter(e => e.isPublic));
-    }
 
     res.json(events);
   } catch (error) {
@@ -309,6 +316,17 @@ const deleteEvent = async (req, res) => {
         );
         await createNotification(event, "deleted", notifyUsers);
       }
+    }
+
+    // 팀 이벤트 삭제 시 attendees에게 배포된 개인 복사본도 함께 삭제
+    if (event.team) {
+      await Event.deleteMany({
+        sourceTeam: event.team,
+        team: null,
+        title: event.title,
+        startDate: event.startDate,
+        endDate: event.endDate,
+      });
     }
 
     await event.deleteOne();
