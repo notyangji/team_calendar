@@ -10,13 +10,15 @@ const HOUR_START = 8;
 const HOUR_END   = 22;
 const TOTAL_MIN  = (HOUR_END - HOUR_START) * 60;
 
+const KST_MS = 9 * 60 * 60 * 1000;
+
 function toHHMM(isoStr) {
-  const d = new Date(isoStr);
+  const d = new Date(new Date(isoStr).getTime() + KST_MS);
   return `${String(d.getUTCHours()).padStart(2, "0")}:${String(d.getUTCMinutes()).padStart(2, "0")}`;
 }
 
 function toPercent(isoStr) {
-  const d    = new Date(isoStr);
+  const d    = new Date(new Date(isoStr).getTime() + KST_MS);
   const mins = d.getUTCHours() * 60 + d.getUTCMinutes() - HOUR_START * 60;
   return Math.max(0, Math.min(100, (mins / TOTAL_MIN) * 100));
 }

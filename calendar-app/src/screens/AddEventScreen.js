@@ -9,6 +9,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
 import client from "../api/client";
 import FreeBusyModal from "../components/FreeBusyModal";
+import { kstDateKey, kstHHMM, kstTodayKey, kstToUtcISO } from "../utils/calendarUtils";
 
 // 分类配置
 const CATEGORIES = [
@@ -51,8 +52,8 @@ const nextDay = (dateStr) => {
   return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
 };
 
-function parseDate(iso) { return iso?.split("T")[0] ?? ""; }
-function parseTime(iso) { return iso?.split("T")[1]?.slice(0, 5) ?? ""; }
+function parseDate(iso) { return iso ? kstDateKey(iso) : ""; }
+function parseTime(iso) { return iso ? kstHHMM(iso) : ""; }
 
 const to12hDisplay = (t) => {
   const [hStr, mStr] = t.split(":");
@@ -72,7 +73,7 @@ const from12hToTime24 = (input12, ampm) => {
 
 export default function AddEventScreen({ navigation, route }) {
   const existingEvent = route.params?.event ?? null;
-  const initialDate = route.params?.selectedDate ?? new Date().toISOString().split("T")[0];
+  const initialDate = route.params?.selectedDate ?? kstTodayKey();
   const teamId = route.params?.teamId ?? null;
   const isEdit = existingEvent !== null;
 
@@ -163,7 +164,7 @@ export default function AddEventScreen({ navigation, route }) {
   const categoryColor = CATEGORIES.find(c => c.value === category)?.color || "#4A90E2";
 
   const calendarInitialDate = useRef(
-    isValidDate(startDate) ? startDate : new Date().toISOString().split("T")[0]
+    isValidDate(startDate) ? startDate : kstTodayKey()
   ).current;
 
   const calendarMarked = useMemo(() => {
@@ -211,8 +212,8 @@ export default function AddEventScreen({ navigation, route }) {
     if (!isValidDate(startDate) || !isValidDate(endDate))
       return Alert.alert("알림", "날짜 형식이 올바르지 않습니다.\n예: 2026-05-21");
 
-    const startISO = allDay ? `${startDate}T00:00:00.000Z` : `${startDate}T${startTime}:00.000Z`;
-    const endISO = allDay ? `${endDate}T23:59:59.000Z` : `${endDate}T${endTime}:00.000Z`;
+    const startISO = allDay ? kstToUtcISO(startDate, "00:00", 0) : kstToUtcISO(startDate, startTime, 0);
+    const endISO = allDay ? kstToUtcISO(endDate, "23:59", 59) : kstToUtcISO(endDate, endTime, 0);
 
     if (new Date(startISO) > new Date(endISO))
       return Alert.alert("알림", "종료 시간이 시작 시간보다 빠를 수 없습니다.");

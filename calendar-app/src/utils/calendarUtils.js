@@ -14,7 +14,18 @@ LocaleConfig.locales["ko"] = {
 };
 LocaleConfig.defaultLocale = "ko";
 
-export const today = new Date().toISOString().split("T")[0];
+const KST_MS = 9 * 60 * 60 * 1000;
+const kst = (iso) => new Date(new Date(iso).getTime() + KST_MS);
+export const kstDateKey = (iso) => kst(iso).toISOString().split("T")[0];
+export const kstHHMM = (iso) => kst(iso).toISOString().split("T")[1].slice(0, 5);
+export const kstTodayKey = () => kstDateKey(new Date().toISOString());
+export const kstToUtcISO = (dateStr, timeStr = "00:00", sec = 0) => {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const [hh, mm] = timeStr.split(":").map(Number);
+  return new Date(Date.UTC(y, m - 1, d, hh, mm, sec) - KST_MS).toISOString();
+};
+
+export const today = kstTodayKey();
 
 export const CATEGORY_COLORS = {
   work: "#4A90E2", meeting: "#9B59B6", outdoor: "#27AE60",
@@ -22,7 +33,7 @@ export const CATEGORY_COLORS = {
 };
 
 export const formatTimeKr = (isoDate) => {
-  const t = isoDate?.split("T")[1]?.slice(0, 5);
+  const t = isoDate ? kstHHMM(isoDate) : null;
   if (!t) return "시간 미설정";
   const [h, m] = t.split(":").map(Number);
   const ampm = h < 12 ? "오전" : "오후";
@@ -34,8 +45,8 @@ export const buildPeriodMarks = (events, selectedDate) => {
   const marks = {};
   events.forEach(ev => {
     try {
-      const start = ev?.startDate?.split?.("T")?.[0];
-      const end = ev?.endDate?.split?.("T")?.[0] || start;
+      const start = ev?.startDate ? kstDateKey(ev.startDate) : undefined;
+      const end = (ev?.endDate ? kstDateKey(ev.endDate) : undefined) || start;
       if (!start) return;
       const color = CATEGORY_COLORS[ev.category] || "#4A90E2";
       let cur = start;
@@ -66,8 +77,8 @@ export const buildPeriodMarks = (events, selectedDate) => {
 export const filterDayEvents = (events, selectedDate) => {
   return events.filter(e => {
     try {
-      const start = e?.startDate?.split?.("T")?.[0];
-      const end = e?.endDate?.split?.("T")?.[0] || start;
+      const start = e?.startDate ? kstDateKey(e.startDate) : undefined;
+      const end = (e?.endDate ? kstDateKey(e.endDate) : undefined) || start;
       return start && selectedDate >= start && selectedDate <= end;
     } catch { return false; }
   });

@@ -11,6 +11,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect } from "@react-navigation/native";
 import { AuthProvider, useAuth } from "./src/context/AuthContext";
 import changelog from "./src/changelog.json";
+import { registerForNotifications } from "./src/utils/notifications";
 import LoginScreen from "./src/screens/LoginScreen";
 import RegisterScreen from "./src/screens/RegisterScreen";
 import HomeScreen from "./src/screens/HomeScreen_new";
@@ -139,6 +140,10 @@ export default function App() {
     // 앱이 실행 중일 때 링크 수신
     const sub = Linking.addEventListener("url", ({ url }) => handleInviteLink(url));
     return () => sub.remove();
+  }, []);
+
+  useEffect(() => {
+    registerForNotifications();
   }, []);
 
   useEffect(() => {

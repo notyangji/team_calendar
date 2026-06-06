@@ -624,8 +624,8 @@ const getFreeBusy = async (req, res) => {
 
     let rangeStart, rangeEnd;
     if (date) {
-      rangeStart = new Date(`${date}T00:00:00.000Z`);
-      rangeEnd   = new Date(`${date}T23:59:59.999Z`);
+      rangeStart = new Date(`${date}T00:00:00.000+09:00`);
+      rangeEnd   = new Date(`${date}T23:59:59.999+09:00`);
     } else if (startDate && endDate) {
       rangeStart = new Date(startDate);
       rangeEnd   = new Date(endDate);

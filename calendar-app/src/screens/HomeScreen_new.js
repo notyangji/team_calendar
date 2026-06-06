@@ -18,6 +18,7 @@ import useDayComponent from "../hooks/useDayComponent";
 import useMonthSwipe from "../hooks/useMonthSwipe";
 import EventSheet from "../components/EventSheet";
 import EventCard from "../components/EventCard";
+import { syncEventReminders } from "../utils/notifications";
 
 const CATEGORY_LABELS = {
   work: "업무", meeting: "회의", outdoor: "야외",
@@ -46,13 +47,15 @@ export default function HomeScreen({ navigation }) {
       const { data } = await client.get("/events");
       const all = Array.isArray(data) ? data : [];
       const myId = String(user?._id || user?.id || "");
-      setEvents(all.filter(ev => {
+      const mine = all.filter(ev => {
         if (ev.team) {
           if (!myId) return false;
           return ev.attendees?.some(a => String(a.userId?._id || a.userId) === myId);
         }
         return true;
-      }));
+      });
+      setEvents(mine);
+      syncEventReminders(mine);
     } catch (e) {
       console.error("일정 불러오기 실패:", e.message, e);
     } finally {
