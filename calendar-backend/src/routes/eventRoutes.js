@@ -14,6 +14,7 @@ const {
   getNotifications,
   markNotificationRead,
   getCategories,
+  getFreeBusy,
 } = require("../controllers/eventController");
 const { protect } = require("../middleware/authMiddleware");
 
@@ -26,6 +27,7 @@ router.get("/categories", getCategories);
 router.get("/notifications", getNotifications);
 router.put("/publish", publishEvents);
 router.get("/team/:teamId", getTeamEvents);
+router.get("/free-busy", getFreeBusy);
 
 router.get("/:id", getEvent);
 router.put("/:id", updateEvent);
