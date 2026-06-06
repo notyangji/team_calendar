@@ -1,8 +1,5 @@
 import * as Notifications from "expo-notifications";
-import { Platform, Alert } from "react-native";
-
-// [임시 디버그] 확인 후 제거
-const DEBUG_NOTIF = true;
+import { Platform } from "react-native";
 
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -32,10 +29,6 @@ export async function registerForNotifications() {
 }
 
 export async function syncEventReminders(events) {
-  let scheduled = 0;
-  let skippedPast = 0;
-  let lastErr = null;
-  let nextFire = null;
   try {
     await Notifications.cancelAllScheduledNotificationsAsync();
     const now = Date.now();
@@ -43,7 +36,7 @@ export async function syncEventReminders(events) {
       if (!ev?.reminder?.enabled || !ev?.startDate) continue;
       const minutes = ev.reminder.minutes ?? 30;
       const fireAt = new Date(ev.startDate).getTime() - minutes * 60 * 1000;
-      if (isNaN(fireAt) || fireAt <= now) { skippedPast++; continue; }
+      if (isNaN(fireAt) || fireAt <= now) continue;
       await Notifications.scheduleNotificationAsync({
         content: {
           title: ev.title || "일정 알림",
@@ -56,30 +49,8 @@ export async function syncEventReminders(events) {
           channelId: "reminders",
         },
       });
-      scheduled++;
-      if (!nextFire || fireAt < nextFire) nextFire = fireAt;
     }
   } catch (e) {
-    lastErr = e?.message || String(e);
-    console.error("알림 예약 실패:", lastErr);
-  }
-
-  if (DEBUG_NOTIF) {
-    try {
-      const perm = await Notifications.getPermissionsAsync();
-      const all = await Notifications.getAllScheduledNotificationsAsync();
-      Alert.alert(
-        "알림 디버그",
-        `권한: ${perm.status}\n` +
-        `reminder 켜진 일정 예약: ${scheduled}건\n` +
-        `과거라 건너뜀: ${skippedPast}건\n` +
-        `실제 예약됨(OS): ${all.length}건\n` +
-        `가장 빠른 발송: ${nextFire ? new Date(nextFire).toLocaleString() : "없음"}\n` +
-        `현재시각: ${new Date().toLocaleString()}\n` +
-        `에러: ${lastErr || "없음"}`
-      );
-    } catch (e) {
-      Alert.alert("알림 디버그 실패", e?.message || String(e));
-    }
+    console.error("알림 예약 실패:", e?.message);
   }
 }
