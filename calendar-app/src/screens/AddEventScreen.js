@@ -8,6 +8,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import { Calendar } from "react-native-calendars";
 import client from "../api/client";
+import FreeBusyModal from "../components/FreeBusyModal";
 
 // 分类配置
 const CATEGORIES = [
@@ -106,6 +107,7 @@ export default function AddEventScreen({ navigation, route }) {
   const [attendees, setAttendees] = useState(existingEvent?.attendees?.map(a => a.userId?._id || a.userId) ?? []);
   const [teamMembers, setTeamMembers] = useState([]);
   const [showAttendeeModal, setShowAttendeeModal] = useState(false);
+  const [showFreeBusy, setShowFreeBusy] = useState(false);
   
   // 分类选择弹窗
   const [showCategoryModal, setShowCategoryModal] = useState(false);
@@ -438,7 +440,18 @@ export default function AddEventScreen({ navigation, route }) {
               </View>
             </TouchableOpacity>
           )}
-
+          {teamId && teamMembers.length > 0 && (
+            <TouchableOpacity
+             style={[styles.optionRow, { borderColor: "#27AE60" }]}
+             onPress={() => setShowFreeBusy(true)}
+            >
+              <View style={styles.optionLeft}>
+                <Ionicons name="time-outline" size={20} color="#27AE60" />
+                <Text style={[styles.optionLabel, { color: "#27AE60" }]}>여유 시간 확인</Text>
+              </View>
+                <Ionicons name="chevron-forward" size={18} color="#27AE60" />
+                 </TouchableOpacity>
+          )}
           {/* 日历 */}
           <View style={styles.calendarCard}>
             <View style={styles.calendarTabs}>
@@ -581,6 +594,13 @@ export default function AddEventScreen({ navigation, route }) {
           </View>
         </View>
       </Modal>
+      <FreeBusyModal
+        visible={showFreeBusy}
+        onClose={() => setShowFreeBusy(false)}
+        teamId={teamId}
+        date={startDate}
+        selectedUserIds={attendees}
+      />
     </SafeAreaView>
   );
 }
