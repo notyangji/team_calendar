@@ -643,6 +643,7 @@ const getFreeBusy = async (req, res) => {
       targetMembers.map(async (member) => {
         const events = await Event.find({
           team: teamId,
+          "attendees.userId": member._id,
           startDate: { $lt: rangeEnd },
           endDate:   { $gt: rangeStart },
     }).select("title startDate endDate allDay");
