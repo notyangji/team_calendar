@@ -556,6 +556,133 @@ const getCategories = async (req, res) => {
   res.json(Event.CATEGORIES);
 };
 
+function mergeSlots(slots) {
+  if (!slots.length) return [];
+  const sorted = [...slots].sort((a, b) => new Date(a.start) - new Date(b.start));
+  const merged = [{ ...sorted[0] }];
+  for (let i = 1; i < sorted.length; i++) {
+    const last = merged[merged.length - 1];
+    const cur  = sorted[i];
+    if (new Date(cur.start) <= new Date(last.end)) {
+      if (new Date(cur.end) > new Date(last.end)) last.end = cur.end;
+    } else {
+      merged.push({ ...cur });
+    }
+  }
+  return merged;
+}
+
+function calcFreeSlots(allBusySlots, rangeStart, rangeEnd, minMinutes = 30) {
+  const combined = allBusySlots.flat().map(s => ({
+    start: s.start,
+    end:   s.end,
+  }));
+  const mergedBusy = mergeSlots(combined);
+
+  const free  = [];
+  let cursor  = rangeStart;
+
+  for (const busy of mergedBusy) {
+    const busyStart = new Date(busy.start);
+    const busyEnd   = new Date(busy.end);
+    if (busyStart > cursor) {
+      const diffMin = (busyStart - cursor) / 60000;
+      if (diffMin >= minMinutes) {
+        free.push({
+          start:       cursor.toISOString(),
+          end:         busyStart.toISOString(),
+          durationMin: Math.round(diffMin),
+        });
+      }
+    }
+    if (busyEnd > cursor) cursor = busyEnd;
+  }
+
+  if (cursor < rangeEnd) {
+    const diffMin = (rangeEnd - cursor) / 60000;
+    if (diffMin >= minMinutes) {
+      free.push({
+        start:       cursor.toISOString(),
+        end:         rangeEnd.toISOString(),
+        durationMin: Math.round(diffMin),
+      });
+    }
+  }
+  return free;
+}
+const getFreeBusy = async (req, res) => {
+  try {
+    const { teamId, date, startDate, endDate, userIds } = req.query;
+
+    if (!teamId) return res.status(400).json({ message: "teamId는 필수입니다." });
+
+    const team = await Team.findById(teamId).populate("members", "name email");
+    if (!team) return res.status(404).json({ message: "팀을 찾을 수 없습니다." });
+
+    const myRole = team.getUserRole(req.user._id);
+    if (!myRole) return res.status(403).json({ message: "팀 멤버만 조회할 수 있습니다." });
+
+    let rangeStart, rangeEnd;
+    if (date) {
+      rangeStart = new Date(`${date}T00:00:00.000Z`);
+      rangeEnd   = new Date(`${date}T23:59:59.999Z`);
+    } else if (startDate && endDate) {
+      rangeStart = new Date(startDate);
+      rangeEnd   = new Date(endDate);
+    } else {
+      return res.status(400).json({ message: "date 또는 startDate+endDate 가 필요합니다." });
+    }
+
+    let targetMembers = team.members;
+    if (userIds) {
+      const ids = userIds.split(",").map(id => id.trim());
+      targetMembers = targetMembers.filter(m => ids.includes(m._id.toString()));
+    }
+
+    const memberResults = await Promise.all(
+      targetMembers.map(async (member) => {
+        const events = await Event.find({
+          $or: [
+            { createdBy: member._id, team: null },
+            { "attendees.userId": member._id, team: { $ne: null } },
+          ],
+          startDate: { $lt: rangeEnd },
+          endDate:   { $gt: rangeStart },
+        }).select("title startDate endDate allDay");
+
+        const busySlots = events.map(ev => ({
+          title: ev.title,
+          start: ev.allDay ? rangeStart.toISOString() : ev.startDate.toISOString(),
+          end:   ev.allDay ? rangeEnd.toISOString()   : ev.endDate.toISOString(),
+        }));
+
+        return {
+          userId:    member._id,
+          name:      member.name,
+          email:     member.email,
+          busySlots: mergeSlots(busySlots),
+        };
+      })
+    );
+
+    const freeSlots = calcFreeSlots(
+      memberResults.map(m => m.busySlots),
+      rangeStart,
+      rangeEnd,
+      30
+    );
+
+    res.json({
+      date:      date || null,
+      startDate: rangeStart.toISOString(),
+      endDate:   rangeEnd.toISOString(),
+      members:   memberResults,
+      freeSlots,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 module.exports = { 
   createEvent, 
   getEvents, 
@@ -570,4 +697,5 @@ module.exports = {
   getNotifications,
   markNotificationRead,
   getCategories,
+  getFreeBusy,
 };
