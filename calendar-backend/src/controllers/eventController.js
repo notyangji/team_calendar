@@ -642,13 +642,10 @@ const getFreeBusy = async (req, res) => {
     const memberResults = await Promise.all(
       targetMembers.map(async (member) => {
         const events = await Event.find({
-          $or: [
-            { createdBy: member._id, team: null },
-            { "attendees.userId": member._id, team: { $ne: null } },
-          ],
+          team: teamId,
           startDate: { $lt: rangeEnd },
           endDate:   { $gt: rangeStart },
-        }).select("title startDate endDate allDay");
+    }).select("title startDate endDate allDay");
 
         const busySlots = events.map(ev => ({
           title: ev.title,
