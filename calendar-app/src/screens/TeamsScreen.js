@@ -2,6 +2,7 @@ import React, { useState, useCallback } from "react";
 import {
   View, Text, StyleSheet, TouchableOpacity, FlatList,
   TextInput, Alert, ActivityIndicator, Modal,
+  KeyboardAvoidingView, Platform,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -121,6 +122,7 @@ export default function TeamsScreen({ navigation }) {
 
       {/* 팀 생성 모달 */}
       <Modal visible={createModal} transparent animationType="slide">
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setCreateModal(false)}>
           <View style={styles.modalBox} onStartShouldSetResponder={() => true}>
             <Text style={styles.modalTitle}>새 팀 만들기</Text>
@@ -149,10 +151,12 @@ export default function TeamsScreen({ navigation }) {
             </View>
           </View>
         </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* 코드로 참가 모달 */}
       <Modal visible={joinModal} transparent animationType="slide">
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => { setJoinModal(false); setInviteCode(""); }}>
           <View style={styles.modalBox} onStartShouldSetResponder={() => true}>
             <Text style={styles.modalTitle}>초대 코드로 참가</Text>
@@ -174,6 +178,7 @@ export default function TeamsScreen({ navigation }) {
             </View>
           </View>
         </TouchableOpacity>
+        </KeyboardAvoidingView>
       </Modal>
 
     </SafeAreaView>

@@ -75,8 +75,16 @@ export function AuthProvider({ children }) {
     await saveSession(data);
   };
 
+  const updateUser = async (partial) => {
+    setUser(prev => {
+      const next = { ...prev, ...partial };
+      AsyncStorage.setItem("user", JSON.stringify(next)).catch(() => {});
+      return next;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, loginWithOAuth, logout }}>
+    <AuthContext.Provider value={{ user, token, loading, login, register, loginWithOAuth, logout, updateUser }}>
       {children}
     </AuthContext.Provider>
   );

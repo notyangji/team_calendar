@@ -1,15 +1,41 @@
 import React, { useState } from "react";
-import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView, Alert, ActivityIndicator, TextInput } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 import * as Updates from "expo-updates";
 import { useAuth } from "../context/AuthContext";
+import client from "../api/client";
 import changelog from "../changelog.json";
+import WeeklyFreeTimeModal from "../components/WeeklyFreeTimeModal";
 
 export default function ProfileScreen({ navigation }) {
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const [changelogVisible, setChangelogVisible] = useState(false);
   const [updateLoading, setUpdateLoading] = useState(false);
+  const [nameModal, setNameModal] = useState(false);
+  const [nameInput, setNameInput] = useState("");
+  const [savingName, setSavingName] = useState(false);
+  const [freeTimeVisible, setFreeTimeVisible] = useState(false);
+
+  const openNameModal = () => {
+    setNameInput(user?.name || "");
+    setNameModal(true);
+  };
+
+  const handleSaveName = async () => {
+    const trimmed = nameInput.trim();
+    if (!trimmed) return Alert.alert("알림", "이름을 입력해주세요.");
+    setSavingName(true);
+    try {
+      const { data } = await client.put("/auth/me", { name: trimmed });
+      await updateUser({ name: data.name });
+      setNameModal(false);
+    } catch (e) {
+      Alert.alert("오류", e?.response?.data?.message || "이름 변경에 실패했습니다.");
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const handleLogout = async () => {
     try {
@@ -58,10 +84,19 @@ export default function ProfileScreen({ navigation }) {
         <View style={styles.avatar}>
           <Ionicons name="person" size={40} color="#fff" />
         </View>
-        <Text style={styles.name}>{user?.name || "사용자"}</Text>
+        <TouchableOpacity style={styles.nameRow} onPress={openNameModal} activeOpacity={0.7}>
+          <Text style={styles.name}>{user?.name || "사용자"}</Text>
+          <Ionicons name="pencil" size={16} color="#7f8c8d" style={{ marginLeft: 6 }} />
+        </TouchableOpacity>
         <Text style={styles.email}>{user?.email || ""}</Text>
         <Text style={styles.currentVersion}>현재 버전 v{changelog[0]?.version}</Text>
       </View>
+
+      <TouchableOpacity style={styles.menuBtn} onPress={() => setFreeTimeVisible(true)}>
+        <Ionicons name="time-outline" size={20} color="#4A90E2" />
+        <Text style={styles.menuBtnText}>주간 여유 시간 설정</Text>
+        <Ionicons name="chevron-forward" size={16} color="#bbb" style={{ marginLeft: "auto" }} />
+      </TouchableOpacity>
 
       <TouchableOpacity style={styles.menuBtn} onPress={() => setChangelogVisible(true)}>
         <Ionicons name="list-outline" size={20} color="#4A90E2" />
@@ -108,6 +143,37 @@ export default function ProfileScreen({ navigation }) {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <Modal visible={nameModal} transparent animationType="fade">
+        <TouchableOpacity style={nmStyles.overlay} activeOpacity={1} onPress={() => setNameModal(false)}>
+          <View style={nmStyles.box} onStartShouldSetResponder={() => true}>
+            <Text style={nmStyles.title}>이름 수정</Text>
+            <TextInput
+              style={nmStyles.input}
+              value={nameInput}
+              onChangeText={setNameInput}
+              placeholder="이름을 입력하세요"
+              maxLength={20}
+              autoFocus
+            />
+            <View style={nmStyles.btnRow}>
+              <TouchableOpacity style={[nmStyles.btn, nmStyles.cancelBtn]} onPress={() => setNameModal(false)}>
+                <Text style={nmStyles.cancelText}>취소</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[nmStyles.btn, nmStyles.saveBtn]} onPress={handleSaveName} disabled={savingName}>
+                {savingName ? <ActivityIndicator color="#fff" /> : <Text style={nmStyles.saveText}>저장</Text>}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
+
+      <WeeklyFreeTimeModal
+        visible={freeTimeVisible}
+        onClose={() => setFreeTimeVisible(false)}
+        initial={user?.weeklyFreeTime}
+        onSaved={(weeklyFreeTime) => updateUser({ weeklyFreeTime })}
+      />
     </SafeAreaView>
   );
 }
@@ -124,6 +190,7 @@ const styles = StyleSheet.create({
     width: 80, height: 80, borderRadius: 40, backgroundColor: "#4A90E2",
     justifyContent: "center", alignItems: "center", marginBottom: 14,
   },
+  nameRow: { flexDirection: "row", alignItems: "center" },
   name: { fontSize: 20, fontWeight: "bold", color: "#2c3e50" },
   email: { fontSize: 14, color: "#7f8c8d", marginTop: 4 },
   currentVersion: { fontSize: 12, color: "#bbb", marginTop: 6 },
@@ -139,6 +206,22 @@ const styles = StyleSheet.create({
     backgroundColor: "#fff", borderWidth: 1, borderColor: "#e74c3c",
   },
   logoutText: { color: "#e74c3c", fontSize: 15, fontWeight: "600", marginLeft: 8 },
+});
+
+const nmStyles = StyleSheet.create({
+  overlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.4)", justifyContent: "center", alignItems: "center", padding: 24 },
+  box: { backgroundColor: "#fff", borderRadius: 16, padding: 20, width: "100%" },
+  title: { fontSize: 17, fontWeight: "bold", color: "#2c3e50", marginBottom: 16 },
+  input: {
+    borderWidth: 1, borderColor: "#e0e0e0", borderRadius: 10,
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 16, color: "#2c3e50",
+  },
+  btnRow: { flexDirection: "row", gap: 10, marginTop: 18 },
+  btn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: "center" },
+  cancelBtn: { backgroundColor: "#f5f6fa", borderWidth: 1, borderColor: "#e0e0e0" },
+  cancelText: { color: "#7f8c8d", fontSize: 15, fontWeight: "600" },
+  saveBtn: { backgroundColor: "#4A90E2" },
+  saveText: { color: "#fff", fontSize: 15, fontWeight: "600" },
 });
 
 const clStyles = StyleSheet.create({

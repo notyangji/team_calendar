@@ -8,6 +8,7 @@ const formatUser = (user) => ({
   _id: user._id,
   name: user.name,
   email: user.email,
+  weeklyFreeTime: user.weeklyFreeTime || [],
   token: generateToken(user._id),
 });
 
@@ -38,6 +39,40 @@ const login = async (req, res) => {
 
 const getMe = async (req, res) => {
   res.json(req.user);
+};
+
+const updateProfile = async (req, res) => {
+  try {
+    const { name, weeklyFreeTime } = req.body;
+    const user = await User.findById(req.user._id);
+    if (!user) return res.status(404).json({ message: "사용자를 찾을 수 없습니다." });
+
+    if (typeof name === "string") {
+      const trimmed = name.trim();
+      if (!trimmed) return res.status(400).json({ message: "이름을 입력해주세요." });
+      user.name = trimmed;
+    }
+
+    if (Array.isArray(weeklyFreeTime)) {
+      const valid = weeklyFreeTime
+        .filter(s =>
+          s && Number.isInteger(s.day) && s.day >= 0 && s.day <= 6 &&
+          /^\d{2}:\d{2}$/.test(s.start) && /^\d{2}:\d{2}$/.test(s.end) && s.start < s.end
+        )
+        .map(s => ({ day: s.day, start: s.start, end: s.end }));
+      user.weeklyFreeTime = valid;
+    }
+
+    await user.save();
+    res.json({
+      _id: user._id,
+      name: user.name,
+      email: user.email,
+      weeklyFreeTime: user.weeklyFreeTime,
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 };
 
 // Google 로그인 — 인가 코드를 받아 토큰 교환 후 유저 정보 조회
@@ -245,4 +280,4 @@ const oauthRegister = async (req, res) => {
   res.status(201).json(formatUser(user));
 };
 
-module.exports = { register, login, getMe, googleLogin, kakaoLogin, googleCallback, kakaoCallback, oauthRegister };
+module.exports = { register, login, getMe, updateProfile, googleLogin, kakaoLogin, googleCallback, kakaoCallback, oauthRegister };
