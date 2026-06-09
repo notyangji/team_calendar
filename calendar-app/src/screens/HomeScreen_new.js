@@ -16,8 +16,11 @@ import {
 import useBottomSheet from "../hooks/useBottomSheet";
 import useDayComponent from "../hooks/useDayComponent";
 import useMonthSwipe from "../hooks/useMonthSwipe";
+import useWeekView from "../hooks/useWeekView";
 import EventSheet from "../components/EventSheet";
 import EventCard from "../components/EventCard";
+import WeekTimetable from "../components/WeekTimetable";
+import CalendarViewToggle from "../components/CalendarViewToggle";
 import { syncEventReminders } from "../utils/notifications";
 
 const CATEGORY_LABELS = {
@@ -30,6 +33,8 @@ export default function HomeScreen({ navigation }) {
   const [selectedDate, setSelectedDate] = useState(today);
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(false);
+  const { viewMode, setViewMode, weekSwipeHandlers, weekLabel, goPrevWeek, goNextWeek } =
+    useWeekView(selectedDate, setSelectedDate);
 
   // 필터 상태
   const [myTeams, setMyTeams] = useState([]);
@@ -166,30 +171,49 @@ export default function HomeScreen({ navigation }) {
         </View>
       </View>
 
-      <View style={styles.calendarWrap} {...swipeHandlers}>
-        <Animated.View style={{ transform: [{ translateX: slideAnim }] }}>
-          <Calendar
-            key={displayMonth}
-            current={displayMonth}
-            onMonthChange={month => {
-              const first = `${month.year}-${String(month.month).padStart(2, "0")}-01`;
-              setDisplayMonth(first);
-            }}
-            dayComponent={dayComponent}
-            theme={{
-              arrowColor: "#4A90E2",
-              textMonthFontSize: 17,
-              textMonthFontWeight: "bold",
-              monthTextColor: "#2c3e50",
-              textSectionTitleColor: "#7f8c8d",
-              textDayHeaderFontSize: 12,
-              textDayHeaderFontWeight: "600",
-              calendarBackground: "#fff",
-            }}
-            style={styles.calendar}
+      <CalendarViewToggle
+        viewMode={viewMode}
+        setViewMode={setViewMode}
+        weekLabel={weekLabel}
+        onPrevWeek={goPrevWeek}
+        onNextWeek={goNextWeek}
+      />
+
+      {viewMode === "month" ? (
+        <View style={styles.calendarWrap} {...swipeHandlers}>
+          <Animated.View style={{ transform: [{ translateX: slideAnim }] }}>
+            <Calendar
+              key={displayMonth}
+              current={displayMonth}
+              onMonthChange={month => {
+                const first = `${month.year}-${String(month.month).padStart(2, "0")}-01`;
+                setDisplayMonth(first);
+              }}
+              dayComponent={dayComponent}
+              theme={{
+                arrowColor: "#4A90E2",
+                textMonthFontSize: 17,
+                textMonthFontWeight: "bold",
+                monthTextColor: "#2c3e50",
+                textSectionTitleColor: "#7f8c8d",
+                textDayHeaderFontSize: 12,
+                textDayHeaderFontWeight: "600",
+                calendarBackground: "#fff",
+              }}
+              style={styles.calendar}
+            />
+          </Animated.View>
+        </View>
+      ) : (
+        <View style={styles.weekWrap} {...weekSwipeHandlers}>
+          <WeekTimetable
+            weekAnchor={selectedDate}
+            events={filteredEvents}
+            selectedDate={selectedDate}
+            onDayPress={(ds) => handleDayPress({ dateString: ds })}
           />
-        </Animated.View>
-      </View>
+        </View>
+      )}
 
       <EventSheet
         sheetAnim={sheetAnim}
@@ -325,6 +349,7 @@ const styles = StyleSheet.create({
   filterBadgeText: { fontSize: 9, color: "#fff", fontWeight: "700" },
   calendarWrap: { overflow: "hidden", borderBottomWidth: 1, borderBottomColor: "#eee" },
   calendar: {},
+  weekWrap: { flex: 1, borderBottomWidth: 1, borderBottomColor: "#eee" },
   fab: {
     position: "absolute", bottom: 24, right: 24,
     width: 56, height: 56, borderRadius: 28,

@@ -1,6 +1,6 @@
 import { useCallback } from "react";
 import { View, Text, TouchableOpacity, StyleSheet } from "react-native";
-import { today, CATEGORY_COLORS, filterDayEvents } from "../utils/calendarUtils";
+import { today, CATEGORY_COLORS, filterDayEvents, kstDateKey } from "../utils/calendarUtils";
 
 export default function useDayComponent(events, selectedDate, onDayPress) {
   return useCallback(({ date, state }) => {
@@ -35,8 +35,8 @@ export default function useDayComponent(events, selectedDate, onDayPress) {
         </View>
         <View style={s.bars}>
           {dayEvs.slice(0, 3).map(ev => {
-            const evStart = ev?.startDate?.split?.("T")?.[0];
-            const evEnd = ev?.endDate?.split?.("T")?.[0] || evStart;
+            const evStart = ev?.startDate ? kstDateKey(ev.startDate) : undefined;
+            const evEnd = (ev?.endDate ? kstDateKey(ev.endDate) : undefined) || evStart;
             // 주 행 경계(일요일=시작, 토요일=끝)도 시각적 시작/끝으로 처리
             const isVisualStart = date.dateString === evStart || dow === 0;
             const isVisualEnd = date.dateString === evEnd || dow === 6;

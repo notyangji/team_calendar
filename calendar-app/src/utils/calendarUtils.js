@@ -27,6 +27,23 @@ export const kstToUtcISO = (dateStr, timeStr = "00:00", sec = 0) => {
 
 export const today = kstTodayKey();
 
+export const addDays = (dateStr, n) => {
+  const d = new Date(dateStr + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().split("T")[0];
+};
+
+export const getWeekDates = (anchorDateStr) => {
+  const d = new Date(anchorDateStr + "T12:00:00Z");
+  d.setUTCDate(d.getUTCDate() - d.getUTCDay());
+  const out = [];
+  for (let i = 0; i < 7; i++) {
+    out.push(d.toISOString().split("T")[0]);
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return out;
+};
+
 export const CATEGORY_COLORS = {
   work: "#4A90E2", meeting: "#9B59B6", outdoor: "#27AE60",
   vacation: "#F39C12", deadline: "#E74C3C", personal: "#1ABC9C",

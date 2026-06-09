@@ -14,8 +14,11 @@ import { today, filterDayEvents, SHEET_COLLAPSED, SHEET_EXPANDED, SHEET_MAX } fr
 import useBottomSheet from "../hooks/useBottomSheet";
 import useDayComponent from "../hooks/useDayComponent";
 import useMonthSwipe from "../hooks/useMonthSwipe";
+import useWeekView from "../hooks/useWeekView";
 import EventSheet from "../components/EventSheet";
 import EventCard from "../components/EventCard";
+import WeekTimetable from "../components/WeekTimetable";
+import CalendarViewToggle from "../components/CalendarViewToggle";
 
 const ROLES = [
   { value: "admin", label: "관리자", color: "#9B59B6", description: "일정 관리, 멤버 초대 가능" },
@@ -58,6 +61,8 @@ export default function TeamDetailScreen({ navigation, route }) {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("calendar");
   const [selectedDate, setSelectedDate] = useState(today);
+  const { viewMode, setViewMode, weekSwipeHandlers, weekLabel, goPrevWeek, goNextWeek } =
+    useWeekView(selectedDate, setSelectedDate);
 
   const [menuVisible, setMenuVisible] = useState(false);
   const [inviteVisible, setInviteVisible] = useState(false);
@@ -331,6 +336,15 @@ export default function TeamDetailScreen({ navigation, route }) {
 
       {activeTab === "calendar" && (
         <View style={{ flex: 1 }}>
+          <CalendarViewToggle
+            viewMode={viewMode}
+            setViewMode={setViewMode}
+            weekLabel={weekLabel}
+            onPrevWeek={goPrevWeek}
+            onNextWeek={goNextWeek}
+          />
+
+          {viewMode === "month" ? (
           <View style={styles.calendarWrap} {...swipeHandlers}>
             <Animated.View style={{ transform: [{ translateX: slideAnim }] }}>
               <Calendar
@@ -355,6 +369,16 @@ export default function TeamDetailScreen({ navigation, route }) {
               />
             </Animated.View>
           </View>
+          ) : (
+            <View style={styles.weekWrap} {...weekSwipeHandlers}>
+              <WeekTimetable
+                weekAnchor={selectedDate}
+                events={events}
+                selectedDate={selectedDate}
+                onDayPress={(ds) => handleDayPress({ dateString: ds })}
+              />
+            </View>
+          )}
 
           <EventSheet
             sheetAnim={sheetAnim}
@@ -494,6 +518,7 @@ const styles = StyleSheet.create({
   tabTextActive: { color: "#4A90E2", fontWeight: "600" },
   calendarWrap: { overflow: "hidden", borderBottomWidth: 1, borderBottomColor: "#eee" },
   calendar: {},
+  weekWrap: { flex: 1, borderBottomWidth: 1, borderBottomColor: "#eee" },
   todayBtn: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, borderWidth: 1, borderColor: "#4A90E2", marginRight: 4 },
   todayBtnText: { fontSize: 12, color: "#4A90E2", fontWeight: "600" },
   fab: {
