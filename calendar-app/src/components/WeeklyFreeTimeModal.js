@@ -96,7 +96,7 @@ export default function WeeklyFreeTimeModal({ visible, onClose, initial, onSaved
     <Modal visible={visible} transparent animationType="slide">
       <KeyboardAvoidingView
         style={s.overlay}
-        behavior={Platform.OS === "ios" ? "padding" : "height"}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
       >
         <View style={s.sheet}>
           <View style={s.header}>
@@ -105,6 +105,50 @@ export default function WeeklyFreeTimeModal({ visible, onClose, initial, onSaved
               <Ionicons name="close" size={22} color="#7f8c8d" />
             </TouchableOpacity>
           </View>
+
+          {/* 추가 패널 (키보드가 가리지 않도록 상단 배치) */}
+          {adding && (
+            <View style={s.addPanel}>
+              <View style={s.dayChips}>
+                {DOW.map((d, i) => (
+                  <TouchableOpacity
+                    key={i}
+                    style={[s.dayChip, draft.day === i && s.dayChipActive]}
+                    onPress={() => setDraft(p => ({ ...p, day: i }))}
+                  >
+                    <Text style={[s.dayChipText, draft.day === i && s.dayChipTextActive]}>{d}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <View style={s.timeRow}>
+                <TextInput
+                  style={s.timeInput}
+                  value={draft.start}
+                  onChangeText={t => setDraft(p => ({ ...p, start: t }))}
+                  onBlur={() => setDraft(p => ({ ...p, start: formatTime(p.start) }))}
+                  placeholder="09:00"
+                  keyboardType="number-pad"
+                  maxLength={5}
+                />
+                <Text style={s.tilde}>~</Text>
+                <TextInput
+                  style={s.timeInput}
+                  value={draft.end}
+                  onChangeText={t => setDraft(p => ({ ...p, end: t }))}
+                  onBlur={() => setDraft(p => ({ ...p, end: formatTime(p.end) }))}
+                  placeholder="18:00"
+                  keyboardType="number-pad"
+                  maxLength={5}
+                />
+                <TouchableOpacity style={s.cancelMini} onPress={() => setAdding(false)}>
+                  <Text style={s.cancelMiniText}>취소</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={s.confirmMini} onPress={confirmAdd}>
+                  <Text style={s.confirmMiniText}>추가</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           {/* 요일 헤더 */}
           <View style={s.dowRow}>
@@ -152,49 +196,7 @@ export default function WeeklyFreeTimeModal({ visible, onClose, initial, onSaved
             </View>
           </ScrollView>
 
-          {/* 추가 패널 */}
-          {adding ? (
-            <View style={s.addPanel}>
-              <View style={s.dayChips}>
-                {DOW.map((d, i) => (
-                  <TouchableOpacity
-                    key={i}
-                    style={[s.dayChip, draft.day === i && s.dayChipActive]}
-                    onPress={() => setDraft(p => ({ ...p, day: i }))}
-                  >
-                    <Text style={[s.dayChipText, draft.day === i && s.dayChipTextActive]}>{d}</Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-              <View style={s.timeRow}>
-                <TextInput
-                  style={s.timeInput}
-                  value={draft.start}
-                  onChangeText={t => setDraft(p => ({ ...p, start: t }))}
-                  onBlur={() => setDraft(p => ({ ...p, start: formatTime(p.start) }))}
-                  placeholder="09:00"
-                  keyboardType="number-pad"
-                  maxLength={5}
-                />
-                <Text style={s.tilde}>~</Text>
-                <TextInput
-                  style={s.timeInput}
-                  value={draft.end}
-                  onChangeText={t => setDraft(p => ({ ...p, end: t }))}
-                  onBlur={() => setDraft(p => ({ ...p, end: formatTime(p.end) }))}
-                  placeholder="18:00"
-                  keyboardType="number-pad"
-                  maxLength={5}
-                />
-                <TouchableOpacity style={s.cancelMini} onPress={() => setAdding(false)}>
-                  <Text style={s.cancelMiniText}>취소</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={s.confirmMini} onPress={confirmAdd}>
-                  <Text style={s.confirmMiniText}>추가</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          ) : (
+          {!adding && (
             <TouchableOpacity style={s.addBtn} onPress={() => setAdding(true)}>
               <Ionicons name="add" size={18} color={FREE} />
               <Text style={s.addText}>여유시간 추가</Text>

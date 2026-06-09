@@ -154,18 +154,18 @@ export default function FreeBusyModal({
 
                   <View style={s.barCol}>
                     <View style={s.bar}>
-                      {data.freeSlots.map((slot, i) => (
+                      {(member.availableSlots || []).map((slot, i) => (
                         <View
-                          key={`free-${i}`}
+                          key={`avail-${i}`}
                           style={[s.freeOverlay, {
                             left:  `${toPercent(slot.start)}%`,
                             width: `${toDurationPercent(slot.start, slot.end)}%`,
                           }]}
                         />
                       ))}
-                      {member.busySlots.map((slot, i) => (
+                      {(member.teamSlots || member.busySlots || []).map((slot, i) => (
                         <View
-                          key={`busy-${i}`}
+                          key={`team-${i}`}
                           style={[s.busyBlock, {
                             left:  `${toPercent(slot.start)}%`,
                             width: `${toDurationPercent(slot.start, slot.end)}%`,
@@ -181,11 +181,15 @@ export default function FreeBusyModal({
               <View style={s.legend}>
                 <View style={s.legendItem}>
                   <View style={[s.legendDot, { backgroundColor: "#4A90E2" }]} />
-                  <Text style={s.legendText}>바쁨</Text>
+                  <Text style={s.legendText}>팀 일정</Text>
                 </View>
                 <View style={s.legendItem}>
                   <View style={[s.legendDot, { backgroundColor: "#27AE6033" }]} />
-                  <Text style={s.legendText}>모두 여유</Text>
+                  <Text style={s.legendText}>여유 시간</Text>
+                </View>
+                <View style={s.legendItem}>
+                  <View style={[s.legendDot, { backgroundColor: "#e0e0e0" }]} />
+                  <Text style={s.legendText}>사용 불가</Text>
                 </View>
               </View>
             </ScrollView>

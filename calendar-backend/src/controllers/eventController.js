@@ -610,13 +610,31 @@ function calcFreeSlots(allBusySlots, rangeStart, rangeEnd, minMinutes = 30) {
   }
   return free;
 }
+// [rangeStart, rangeEnd] 에서 free 윈도우들을 뺀 나머지(=바쁨) 구간 반환
+function invertWindows(rangeStart, rangeEnd, windows) {
+  const sorted = windows
+    .map(w => ({ start: new Date(w.start), end: new Date(w.end) }))
+    .filter(w => w.end > rangeStart && w.start < rangeEnd)
+    .sort((a, b) => a.start - b.start);
+  const busy = [];
+  let cursor = new Date(rangeStart);
+  for (const w of sorted) {
+    const ws = w.start < rangeStart ? new Date(rangeStart) : w.start;
+    const we = w.end > rangeEnd ? new Date(rangeEnd) : w.end;
+    if (ws > cursor) busy.push({ start: cursor.toISOString(), end: ws.toISOString() });
+    if (we > cursor) cursor = we;
+  }
+  if (cursor < rangeEnd) busy.push({ start: cursor.toISOString(), end: rangeEnd.toISOString() });
+  return busy;
+}
+
 const getFreeBusy = async (req, res) => {
   try {
     const { teamId, date, startDate, endDate, userIds } = req.query;
 
     if (!teamId) return res.status(400).json({ message: "teamId는 필수입니다." });
 
-    const team = await Team.findById(teamId).populate("members", "name email");
+    const team = await Team.findById(teamId).populate("members", "name email weeklyFreeTime");
     if (!team) return res.status(404).json({ message: "팀을 찾을 수 없습니다." });
 
     const myRole = team.getUserRole(req.user._id);
@@ -633,32 +651,59 @@ const getFreeBusy = async (req, res) => {
       return res.status(400).json({ message: "date 또는 startDate+endDate 가 필요합니다." });
     }
 
+    // 단일 날짜 조회일 때만 개인 주간 여유 시간 반영 (요일 결정 가능)
+    const weekday = date ? new Date(`${date}T00:00:00Z`).getUTCDay() : null;
+
     let targetMembers = team.members;
     if (userIds) {
       const ids = userIds.split(",").map(id => id.trim());
       targetMembers = targetMembers.filter(m => ids.includes(m._id.toString()));
     }
 
+    const toSlot = (ev) => ({
+      start: ev.allDay ? rangeStart.toISOString() : ev.startDate.toISOString(),
+      end:   ev.allDay ? rangeEnd.toISOString()   : ev.endDate.toISOString(),
+    });
+
     const memberResults = await Promise.all(
       targetMembers.map(async (member) => {
-        const events = await Event.find({
+        // 팀 일정: 본인이 참여자로 지정된 팀 원본 (바쁨)
+        const teamEvents = await Event.find({
           team: teamId,
           "attendees.userId": member._id,
           startDate: { $lt: rangeEnd },
           endDate:   { $gt: rangeStart },
-    }).select("title startDate endDate allDay");
+        }).select("startDate endDate allDay");
 
-        const busySlots = events.map(ev => ({
-          title: ev.title,
-          start: ev.allDay ? rangeStart.toISOString() : ev.startDate.toISOString(),
-          end:   ev.allDay ? rangeEnd.toISOString()   : ev.endDate.toISOString(),
-        }));
+        const teamBusy = teamEvents.map(toSlot);
+
+        // 개인 주간 여유 시간: 설정한 시간대 = 여유, 그 밖 = 사용 불가.
+        // 미설정 요일은 종일 여유.
+        let availableSlots = [{ start: rangeStart.toISOString(), end: rangeEnd.toISOString() }];
+        let unavailable = [];
+        if (weekday !== null) {
+          const dayWindows = (member.weeklyFreeTime || [])
+            .filter(s => s.day === weekday && s.start && s.end)
+            .map(s => ({
+              start: new Date(`${date}T${s.start}:00.000+09:00`),
+              end:   new Date(`${date}T${s.end}:00.000+09:00`),
+            }));
+          if (dayWindows.length > 0) {
+            availableSlots = mergeSlots(dayWindows.map(w => ({
+              start: w.start.toISOString(),
+              end:   w.end.toISOString(),
+            })));
+            unavailable = invertWindows(rangeStart, rangeEnd, dayWindows);
+          }
+        }
 
         return {
-          userId:    member._id,
-          name:      member.name,
-          email:     member.email,
-          busySlots: mergeSlots(busySlots),
+          userId:         member._id,
+          name:           member.name,
+          email:          member.email,
+          teamSlots:      mergeSlots(teamBusy),
+          availableSlots,
+          busySlots:      mergeSlots([...teamBusy, ...unavailable]),
         };
       })
     );
