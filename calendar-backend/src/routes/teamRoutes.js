@@ -1,11 +1,9 @@
 const express = require("express");
 const router = express.Router();
-const { 
+const {
   createTeam,
   getMyTeams,
   getTeam,
-  getMembers,
-  getMyRole,
   updateMemberRole,
   getInviteLink,
   joinTeam,
@@ -26,10 +24,8 @@ router.delete("/:id", deleteTeam);
 
 // 멤버 관리
 router.post("/member-role", updateMemberRole);
-router.get("/:id/members", getMembers);
-router.get("/:id/my-role", getMyRole);
 
-// 邀请
+// 초대
 router.get("/:id/invite", getInviteLink);
 router.post("/join", joinTeam);
 router.post("/join/:inviteCode", joinTeam);

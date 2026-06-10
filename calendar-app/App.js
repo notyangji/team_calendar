@@ -14,7 +14,7 @@ import changelog from "./src/changelog.json";
 import { registerForNotifications } from "./src/utils/notifications";
 import LoginScreen from "./src/screens/LoginScreen";
 import RegisterScreen from "./src/screens/RegisterScreen";
-import HomeScreen from "./src/screens/HomeScreen_new";
+import HomeScreen from "./src/screens/HomeScreen";
 import TeamsScreen from "./src/screens/TeamsScreen";
 import ProfileScreen from "./src/screens/ProfileScreen";
 import AddEventScreen from "./src/screens/AddEventScreen";

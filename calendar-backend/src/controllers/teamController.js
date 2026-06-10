@@ -34,81 +34,6 @@ const getTeam = async (req, res) => {
   res.json(team);
 };
 
-// 获取成员列表（含角色）
-const getMembers = async (req, res) => {
-  try {
-    const team = await Team.findById(req.params.id).populate("owner", "name email");
-    if (!team) return res.status(404).json({ message: "팀을 찾을 수 없습니다." });
-    
-    // 检查用户是否是团队成员
-    if (!team.members.some(m => m.toString() === req.user._id.toString())) {
-      return res.status(403).json({ message: "팀 멤버만 조회할 수 있습니다." });
-    }
-
-    // 获取所有成员信息
-    const memberIds = team.members.map(m => m);
-    const users = await User.find({ _id: { $in: memberIds } }).select("_id name email");
-
-    const members = users.map(user => {
-      let role = "member"; // 默认角色
-      if (team.owner._id.toString() === user._id.toString()) {
-        role = "owner";
-      } else {
-        role = team.memberRoles?.get(user._id.toString()) || "member";
-      }
-      return {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        role,
-      };
-    });
-
-    // 按角色分组
-    const grouped = {
-      owner: members.filter(m => m.role === "owner"),
-      admins: members.filter(m => m.role === "admin"),
-      members: members.filter(m => m.role === "member"),
-      guests: members.filter(m => m.role === "guest"),
-    };
-
-    res.json({
-      teamId: team._id,
-      teamName: team.name,
-      ...grouped,
-      all: members,
-    });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// 获取我的角色
-const getMyRole = async (req, res) => {
-  try {
-    const team = await Team.findById(req.params.id);
-    if (!team) return res.status(404).json({ message: "팀을 찾을 수 없습니다." });
-    
-    const role = team.getUserRole(req.user._id);
-    if (!role) return res.status(403).json({ message: "팀 멤버가 아닙니다." });
-    
-    res.json({ role, permissions: getPermissionsByRole(role) });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// 根据角色获取权限列表
-const getPermissionsByRole = (role) => {
-  const permissions = {
-    owner: ["view", "edit_event", "create_event", "delete_event", "manage_members", "invite", "share_event", "change_role"],
-    admin: ["view", "edit_event", "create_event", "delete_event", "manage_members", "invite", "share_event"],
-    member: ["view", "create_event", "edit_own_event", "share_own_event"],
-    guest: ["view"],
-  };
-  return permissions[role] || [];
-};
-
 // 역할 변경
 const updateMemberRole = async (req, res) => {
   try {
@@ -260,8 +185,6 @@ module.exports = {
   createTeam,
   getMyTeams,
   getTeam,
-  getMembers,
-  getMyRole,
   updateMemberRole,
   getInviteLink,
   joinTeam,
